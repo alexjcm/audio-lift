@@ -16,12 +16,12 @@ export default defineConfig({
         'app-icon-maskable.svg',
       ],
       manifest: {
-        name: 'Audio Lift PWA',
+        name: 'Audio Lift',
         short_name: 'Audio Lift',
         description:
           'Aumenta la ganancia del audio de videos cortos preservando el video original cuando el pipeline local lo permite.',
-        theme_color: '#f4efe6',
-        background_color: '#f4efe6',
+        theme_color: '#090910',
+        background_color: '#090910',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
