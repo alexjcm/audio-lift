@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   GAIN_MAX_DB,
   GAIN_MIN_DB,
@@ -7,6 +8,14 @@ import { formatTruePeak } from '../lib/formatters'
 import { cn, compactPanelClass, getPillClass } from '../lib/ui'
 import type { DerivedAnalysis } from '../types'
 
+type GainControlPanelProps = {
+  canAdjustVolume: boolean
+  derivedAnalysis: DerivedAnalysis | null
+  feedbackMessages: string[]
+  gainDb: number
+  onGainChange: (value: number) => void
+}
+
 export function GainControlPanel({
   canAdjustVolume,
   derivedAnalysis,
@@ -14,21 +23,120 @@ export function GainControlPanel({
   gainDb,
   onGainChange,
 }: GainControlPanelProps) {
-  return (
-    <section className={compactPanelClass}>
-      <header className="mb-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-technical text-ozone-accent">Gain Control</h2>
-          <span className={getPillClass('neutral')}>
-            Margin: {derivedAnalysis?.marginLabel ?? '---'}
-          </span>
-        </div>
-      </header>
+  const [isWarningsOpen, setIsWarningsOpen] = useState(false)
+  const warningsRef = useRef<HTMLDivElement | null>(null)
+  const hasWarnings = canAdjustVolume && feedbackMessages.length > 0
 
-      <div className="grid grid-cols-[1fr_auto] gap-6 items-center">
-        <div className="grid gap-4">
+  useEffect(() => {
+    if (!hasWarnings) {
+      setIsWarningsOpen(false)
+    }
+  }, [hasWarnings])
+
+  useEffect(() => {
+    if (!isWarningsOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!warningsRef.current?.contains(event.target as Node)) {
+        setIsWarningsOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsWarningsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isWarningsOpen])
+
+  return (
+    <section className={cn(compactPanelClass, 'relative overflow-visible')}>
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-start gap-3 md:grid-cols-[minmax(0,1fr)_5rem] md:gap-4">
+        <div ref={warningsRef} className="relative grid gap-2.5">
+          <header className="relative mb-0.5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-technical text-ozone-accent">Gain Control</h2>
+              <div className="flex items-center gap-1.5">
+                {hasWarnings ? (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex h-7 w-7 items-center justify-center rounded-sm border border-ozone-warning/25 bg-ozone-warning/8 text-ozone-warning transition-all',
+                        'hover:border-ozone-warning/45 hover:bg-ozone-warning/12',
+                        isWarningsOpen && 'border-ozone-warning/45 bg-ozone-warning/12',
+                      )}
+                      aria-expanded={isWarningsOpen}
+                      aria-haspopup="dialog"
+                      aria-label={`Show ${feedbackMessages.length} warning${feedbackMessages.length === 1 ? '' : 's'}`}
+                      onClick={() => setIsWarningsOpen((value) => !value)}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M12 4l8 14H4L12 4z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path d="M12 9v4m0 3h.01" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : null}
+
+                <span className={cn(getPillClass('neutral'), 'px-2 py-1 text-[0.58rem]')}>
+                  Margin: {derivedAnalysis?.marginLabel ?? '---'}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          {isWarningsOpen ? (
+            <div
+              className="absolute left-0 right-0 top-8 z-30 rounded-sm border border-ozone-warning/20 bg-[#171117]/98 p-3 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.8)] backdrop-blur-[2px]"
+              role="dialog"
+              aria-label="Gain warnings"
+            >
+              <div className="mb-2 flex items-center justify-between gap-3 border-b border-ozone-warning/12 pb-2">
+                <strong className="text-[0.62rem] text-technical text-ozone-warning">
+                  Signal Warnings
+                </strong>
+                <span className="text-[0.6rem] font-mono text-ozone-warning/75">
+                  {feedbackMessages.length}
+                </span>
+              </div>
+              <ul className="grid gap-2">
+                {feedbackMessages.map((message) => (
+                  <li
+                    key={message}
+                    className="flex items-start gap-2 text-[0.68rem] leading-snug text-ozone-warning"
+                  >
+                    <span className="mt-1.5 h-1 w-1 rounded-full bg-ozone-warning"></span>
+                    <span>{message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {/* Digital Display */}
-          <div className="ozone-panel bg-black/40 p-4 border-ozone-border-bright">
+          <div className="ozone-panel border-ozone-border-bright bg-black/40 p-4 max-[720px]:p-3.5">
             <div className="flex flex-col">
               <span className="text-[0.6rem] text-technical text-ozone-text-muted mb-1">Target Gain</span>
               <div className="flex items-baseline gap-2">
@@ -59,30 +167,13 @@ export function GainControlPanel({
               </div>
             )}
           </div>
-
-          {/* Feedback Messages */}
-          {canAdjustVolume && feedbackMessages.length > 0 && (
-            <div className="ozone-panel p-3 bg-ozone-warning/5 border-ozone-warning/20">
-              <ul className="grid gap-1">
-                {feedbackMessages.map((message) => (
-                  <li
-                    key={message}
-                    className="text-[0.7rem] leading-tight text-ozone-warning flex items-center gap-2"
-                  >
-                    <span className="h-1 w-1 rounded-full bg-ozone-warning"></span>
-                    {message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
         {/* Vertical Fader */}
-        <div className="flex flex-col items-center h-[200px] gap-2">
-          <div className="relative h-full flex items-center">
+        <div className="flex h-[208px] flex-col items-center gap-1 self-start pt-0.5">
+          <div className="relative flex h-full items-center">
             {/* Scale markings */}
-            <div className="absolute -left-6 h-full flex flex-col justify-between text-[0.6rem] font-mono text-ozone-text-muted py-1">
+            <div className="absolute -left-7 flex h-full flex-col justify-between py-1 text-[0.62rem] font-mono text-ozone-text-muted/90">
               <span>+12</span>
               <span>+6</span>
               <span>0</span>
@@ -91,7 +182,7 @@ export function GainControlPanel({
             </div>
             
             {/* The Track */}
-            <div className="w-1.5 h-full bg-black rounded-full border border-ozone-border-bright overflow-hidden">
+            <div className="h-full w-2 rounded-full border border-ozone-border-bright bg-black overflow-hidden shadow-[0_0_18px_rgba(0,240,255,0.04)]">
                <div 
                  className="w-full bg-ozone-accent glow-cyan transition-all duration-100" 
                  style={{ 
@@ -104,7 +195,7 @@ export function GainControlPanel({
             {/* The Invisible Range Input for Control */}
             <input
               type="range"
-              className="absolute h-[200px] w-8 -left-4 opacity-0 cursor-pointer"
+              className="absolute -left-4 h-[208px] w-10 cursor-pointer opacity-0"
               style={{
                 writingMode: 'vertical-lr',
                 direction: 'rtl',
@@ -119,15 +210,15 @@ export function GainControlPanel({
             
             {/* Custom Thumb Visual */}
             <div 
-              className="absolute w-6 h-3 bg-white border border-ozone-accent rounded-sm shadow-lg pointer-events-none -left-2.5 glow-cyan"
+              className="pointer-events-none absolute -left-3 h-3.5 w-7 rounded-sm border border-ozone-accent bg-white shadow-lg glow-cyan"
               style={{ 
-                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 6px)` 
+                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 7px)` 
               }}
             >
-              <div className="w-full h-[1px] bg-ozone-accent mt-[5px]"></div>
+              <div className="mt-[6px] h-[1px] w-full bg-ozone-accent"></div>
             </div>
           </div>
-          <span className="text-[0.6rem] text-technical text-ozone-text-muted mt-2">Fader</span>
+          <span className="mt-1 text-[0.58rem] text-technical tracking-[0.08em] text-ozone-text-muted/90">Fader</span>
         </div>
       </div>
 
@@ -141,4 +232,3 @@ export function GainControlPanel({
     </section>
   )
 }
-

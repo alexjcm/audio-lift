@@ -45,6 +45,7 @@ export interface ProbeStream {
   pix_fmt?: string
   sample_rate?: string
   channels?: number
+  bit_rate?: string
 }
 
 export interface ProbeFormat {
@@ -72,6 +73,9 @@ export interface MediaSummary {
   height: number | null
   frameRate: number | null
   bitrate: number | null
+  audioSampleRate: number | null
+  audioChannels: number | null
+  audioBitrate: number | null
 }
 
 export interface BrowserPlaybackSupport {

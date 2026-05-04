@@ -14,14 +14,18 @@ function App() {
 
   return (
     <main className="mx-auto w-[min(1280px,100%)] min-h-screen bg-ozone-bg selection:bg-ozone-accent selection:text-ozone-bg">
-      <div className="p-4 md:p-6 lg:p-8">
-        <section className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 items-start">
+      <div className="px-4 pb-4 pt-0 md:p-6 lg:p-8">
+        <section className="grid grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[1fr_400px]">
           {/* Left Column: Primary Visualizer & Core Workflow */}
-          <div className="grid gap-6">
+          <div className="grid gap-4 md:gap-6">
             <PreviewPanel
               activeVideoSrc={workflow.activeVideoSrc}
+              comparisonLoopEnabled={workflow.comparisonLoopEnabled}
+              listeningModeLabel={workflow.listeningModeLabel}
               onLoadedMetadata={workflow.handleVideoLoadedMetadata}
               onPreviewModeChange={workflow.handlePreviewModeChange}
+              onReplayComparison={workflow.handleReplayComparison}
+              onToggleComparisonLoop={workflow.handleToggleComparisonLoop}
               onTimeUpdate={workflow.handleVideoTimeUpdate}
               previewAsset={workflow.previewAsset}
               previewMode={workflow.previewMode}
@@ -34,7 +38,7 @@ function App() {
           </div>
 
           {/* Right Column: Controls & Analytics */}
-          <div className="grid gap-6">
+          <div className="grid gap-4 md:gap-6">
             {workflow.playbackSupport ? (
               <PlaybackSupportPanel playbackSupport={workflow.playbackSupport} />
             ) : null}
@@ -44,7 +48,7 @@ function App() {
             ) : null}
 
             {workflow.selectedFile ? (
-              <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="grid animate-in gap-4 fade-in slide-in-from-right-4 duration-500 md:gap-6">
                 <MediaTechnicalPanel
                   mediaSummary={workflow.mediaSummary}
                   selectedFile={workflow.selectedFile}

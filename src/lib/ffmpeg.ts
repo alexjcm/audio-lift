@@ -533,6 +533,7 @@ function parseStreamLine(line: string) {
     const codecMatch = line.match(/Audio:\s*([^,\s]+)/)
     const sampleRateMatch = line.match(/,\s*(\d+)\s*Hz/i)
     const channels = line.includes('stereo') ? 2 : line.includes('mono') ? 1 : undefined
+    const bitRate = parseStreamBitRate(line)
 
     return [
       {
@@ -543,6 +544,7 @@ function parseStreamLine(line: string) {
         duration: durationMatch?.[1],
         sample_rate: sampleRateMatch?.[1],
         channels,
+        bit_rate: bitRate ? String(bitRate) : undefined,
       },
     ]
   }
@@ -588,6 +590,22 @@ function parseCodecTag(line: string) {
     line.match(/\[([a-zA-Z0-9]{4})\]/)?.[1] ??
     undefined
   )
+}
+
+function parseStreamBitRate(line: string) {
+  const match = line.match(/,\s*([0-9]+(?:\.[0-9]+)?)\s*kb\/s\b/i)
+
+  if (!match) {
+    return null
+  }
+
+  const kilobitsPerSecond = Number.parseFloat(match[1])
+
+  if (!Number.isFinite(kilobitsPerSecond) || kilobitsPerSecond <= 0) {
+    return null
+  }
+
+  return Math.round(kilobitsPerSecond * 1000)
 }
 
 function parseFormatName(lines: string[]) {

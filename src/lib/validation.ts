@@ -54,6 +54,12 @@ export function buildMediaSummary(
   const frameRate = getFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate)
   const bitrate =
     durationSeconds > 0 ? Math.round((file.size * 8) / durationSeconds) : null
+  const audioSampleRate = audioStream?.sample_rate
+    ? Number.parseInt(audioStream.sample_rate, 10)
+    : null
+  const audioBitrate = audioStream?.bit_rate
+    ? Number.parseInt(audioStream.bit_rate, 10)
+    : null
 
   return {
     container: extension,
@@ -68,6 +74,9 @@ export function buildMediaSummary(
     height: videoStream?.height ?? null,
     frameRate,
     bitrate,
+    audioSampleRate: Number.isFinite(audioSampleRate) ? audioSampleRate : null,
+    audioChannels: audioStream?.channels ?? null,
+    audioBitrate: Number.isFinite(audioBitrate) ? audioBitrate : null,
   }
 }
 
@@ -470,4 +479,3 @@ function getRecommendation(audioState: AudioState, projectedTruePeakDbtp: number
 
   return `You can safely increase and compare the same ${PREVIEW_SECONDS}-second segment.`
 }
-

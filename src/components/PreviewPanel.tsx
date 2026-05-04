@@ -4,8 +4,12 @@ import type { GeneratedAsset, PreviewMode } from '../types'
 
 type PreviewPanelProps = {
   activeVideoSrc: string | null
+  comparisonLoopEnabled: boolean
+  listeningModeLabel: string
   onLoadedMetadata: () => void
   onPreviewModeChange: (mode: PreviewMode) => void
+  onReplayComparison: () => void
+  onToggleComparisonLoop: () => void
   onTimeUpdate: () => void
   previewAsset: GeneratedAsset | null
   previewMode: PreviewMode
@@ -14,8 +18,12 @@ type PreviewPanelProps = {
 
 export function PreviewPanel({
   activeVideoSrc,
+  comparisonLoopEnabled,
+  listeningModeLabel,
   onLoadedMetadata,
   onPreviewModeChange,
+  onReplayComparison,
+  onToggleComparisonLoop,
   onTimeUpdate,
   previewAsset,
   previewMode,
@@ -23,21 +31,32 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   return (
     <aside className="grid gap-6">
-      <section className={cn(panelClass, 'relative overflow-hidden')}>
+      <section
+        className={cn(
+          panelClass,
+          'relative overflow-hidden pt-0 pb-0 max-[720px]:pt-0 max-[720px]:pb-0',
+        )}
+      >
         {/* Video / Visualizer Shell */}
-        <div className="relative grid min-h-[220px] place-items-center overflow-hidden rounded-sm border border-ozone-border-bright bg-black grid-technical shadow-inner max-[720px]:min-h-[160px]">
+        <div
+          className={cn(
+            'relative overflow-hidden rounded-sm border border-ozone-border-bright shadow-inner',
+            activeVideoSrc
+              ? 'mx-auto flex w-fit max-w-full justify-center bg-black grid-technical'
+              : 'grid min-h-[180px] place-items-center bg-black grid-technical max-[720px]:min-h-[140px]',
+          )}
+        >
           {activeVideoSrc ? (
             <video
               key={activeVideoSrc}
               ref={videoRef}
-              className="block h-auto max-h-[min(42svh,320px)] w-full bg-black object-contain max-[720px]:max-h-[min(30svh,220px)] relative z-10"
+              className="relative z-10 block h-auto w-auto max-h-[min(42svh,320px)] max-w-full rounded-[2px] bg-black object-contain max-[720px]:max-h-[min(30svh,220px)]"
               src={activeVideoSrc}
               controls
               controlsList="nodownload nofullscreen noremoteplayback"
               disablePictureInPicture
               disableRemotePlayback
               playsInline
-              loop={previewMode === 'adjusted'}
               onLoadedMetadata={onLoadedMetadata}
               onTimeUpdate={onTimeUpdate}
             />
@@ -59,8 +78,99 @@ export function PreviewPanel({
           <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-ozone-accent/30 pointer-events-none"></div>
         </div>
 
+        {previewAsset ? (
+          <div className="mt-2 flex flex-col gap-2 rounded-sm border border-ozone-border bg-black/35 p-2 max-[720px]:p-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[0.58rem] text-technical text-ozone-text-muted">
+                Listening to{' '}
+                <span className="text-ozone-accent">{listeningModeLabel}</span>
+              </span>
+              <span
+                className={cn(
+                  'text-[0.55rem] text-technical transition-colors',
+                  comparisonLoopEnabled
+                    ? 'text-ozone-accent'
+                    : 'text-ozone-text-muted/70',
+                )}
+              >
+                {comparisonLoopEnabled ? 'Looping 4s' : 'Loop Off'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="btn-ozone flex items-center justify-center gap-2 py-2 text-[0.68rem] font-semibold tracking-[0.04em]"
+                onClick={onReplayComparison}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 4v6h6M20 20v-6h-6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20 9a7 7 0 0 0-12-3L4 10m0 5a7 7 0 0 0 12 3l4-4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Replay
+              </button>
+
+              <button
+                type="button"
+                className={cn(
+                  'btn-ozone flex items-center justify-center gap-2 py-2 text-[0.68rem] font-semibold tracking-[0.04em]',
+                  comparisonLoopEnabled &&
+                    'border-ozone-accent/30 bg-ozone-accent/10 text-ozone-accent glow-cyan',
+                )}
+                onClick={onToggleComparisonLoop}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M17 1l4 4-4 4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3 11V9a4 4 0 0 1 4-4h14"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M7 23l-4-4 4-4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M21 13v2a4 4 0 0 1-4 4H3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {comparisonLoopEnabled ? 'Loop On' : 'Loop 4s'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Mode Selector */}
-        <div className="mt-6">
+        <div className="mt-2">
           <div
             className="grid grid-cols-2 gap-1 p-1 bg-black/40 border border-ozone-border rounded-sm"
             role="tablist"
@@ -97,20 +207,5 @@ export function PreviewPanel({
         </div>
       </section>
     </aside>
-  )
-}
-
-
-function ToggleIcon() {
-  return (
-    <span
-      className="flex h-[18px] w-[18px] items-center justify-between opacity-95"
-      aria-hidden="true"
-    >
-      <span className="h-3 w-0.5 bg-current"></span>
-      <span className="h-3 w-0.5 bg-current"></span>
-      <span className="h-3 w-0.5 bg-current"></span>
-      <span className="h-3 w-0.5 bg-current"></span>
-    </span>
   )
 }

@@ -42,6 +42,46 @@ export function formatTruePeak(value: number) {
   return `${value.toFixed(1)} dBTP`
 }
 
+export function formatFrameRate(value: number | null) {
+  if (!value || !Number.isFinite(value)) {
+    return '---'
+  }
+
+  return `${Math.round(value)} fps`
+}
+
+export function formatSampleRate(value: number | null) {
+  if (!value || !Number.isFinite(value)) {
+    return '---'
+  }
+
+  return `${Math.round(value / 1000)} kHz`
+}
+
+export function formatChannels(value: number | null) {
+  if (!value || !Number.isFinite(value)) {
+    return '---'
+  }
+
+  if (value === 1) {
+    return 'Mono'
+  }
+
+  if (value === 2) {
+    return 'Stereo'
+  }
+
+  return `${value} ch`
+}
+
+export function formatAudioBitrate(value: number | null) {
+  if (!value || !Number.isFinite(value)) {
+    return '---'
+  }
+
+  return `${Math.round(value / 1000)} kbps`
+}
+
 export function formatFileNameMiddle(
   value: string,
   startLength = 14,
