@@ -138,7 +138,7 @@ export function GainControlPanel({
           {/* Digital Display */}
           <div className="ozone-panel border-ozone-border-bright bg-black/40 p-4 max-[720px]:p-3.5">
             <div className="flex flex-col">
-              <span className="text-[0.6rem] text-technical text-ozone-text-muted mb-1">Target Gain</span>
+              <span className="text-[0.6rem] text-technical text-ozone-text-muted mb-1">Gain to Apply</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-mono font-bold text-ozone-accent glow-cyan">
                   {gainDb > 0 ? '+' : ''}{gainDb.toFixed(1)}
@@ -156,12 +156,12 @@ export function GainControlPanel({
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[0.55rem] text-technical text-ozone-text-muted">Status</span>
+                  <span className="text-[0.55rem] text-technical text-ozone-text-muted">Export</span>
                   <span className={cn(
                     "text-sm font-mono",
-                    derivedAnalysis.projectedTruePeakDbtp > -1 ? "text-ozone-warning" : "text-ozone-safe"
+                    derivedAnalysis.exportWillClip ? "text-ozone-warning" : "text-ozone-safe"
                   )}>
-                    {derivedAnalysis.projectedTruePeakDbtp > -1 ? 'Clipping' : 'Safe'}
+                    {derivedAnalysis.exportWillClip ? 'Will Clip' : 'Clear'}
                   </span>
                 </div>
               </div>
@@ -175,10 +175,10 @@ export function GainControlPanel({
             {/* Scale markings */}
             <div className="absolute -left-7 flex h-full flex-col justify-between py-1 text-[0.62rem] font-mono text-ozone-text-muted/90">
               <span>+12</span>
+              <span>+9</span>
               <span>+6</span>
+              <span>+3</span>
               <span>0</span>
-              <span>-6</span>
-              <span>-12</span>
             </div>
             
             {/* The Track */}

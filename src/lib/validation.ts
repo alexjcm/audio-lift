@@ -1,7 +1,6 @@
 import {
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
-  PREVIEW_SECONDS,
   SUPPORTED_EXTENSIONS,
   SUPPORTED_VIDEO_CODECS,
 } from './constants'
@@ -114,15 +113,16 @@ export function buildDerivedAnalysis(
   gainDb: number,
 ): DerivedAnalysis {
   const projectedTruePeakDbtp = analysis.truePeakDbtp + gainDb
+  const exportWillClip = projectedTruePeakDbtp >= 0
   const audioState = classifyAudioState(analysis.integratedLufs)
 
   return {
     gainDb,
     projectedTruePeakDbtp,
+    exportWillClip,
     audioState,
     audioStateLabel: getAudioStateLabel(audioState),
     marginLabel: getMarginLabel(analysis.truePeakDbtp),
-    recommendation: getRecommendation(audioState, projectedTruePeakDbtp),
   }
 }
 
@@ -136,19 +136,12 @@ export function getFeedbackMessages(
 
   const messages: string[] = []
 
-  if (analysis.truePeakDbtp > -2) {
+  if (derived.exportWillClip) {
     messages.push(
-      'The file is already close to the true peak limit; review the preview before exporting.',
+      derived.gainDb === 0
+        ? 'The current export will clip because the source already exceeds 0 dBTP.'
+        : 'The current export will clip with the selected gain setting.',
     )
-  }
-
-  if (derived.projectedTruePeakDbtp >= 0) {
-    messages.push('The chosen gain might clip the exported audio.')
-  }
-
-  // Only push recommendation if it's a warning (projectedTruePeakDbtp > -1)
-  if (derived.projectedTruePeakDbtp > -1) {
-    messages.push(derived.recommendation)
   }
 
   return messages
@@ -225,7 +218,7 @@ export async function assessBrowserPlaybackSupport(
       status: 'unknown',
       label: 'Compatible with manual verification',
       detail:
-        'The browser only indicates possible compatibility. Generate the preview and confirm it plays well before exporting.',
+        'The browser only indicates possible compatibility. Confirm playback and live preview behavior before exporting.',
       mimeType,
       canPlayType,
       mediaCapabilities,
@@ -248,7 +241,7 @@ export async function assessBrowserPlaybackSupport(
     status: 'unknown',
     label: 'Compatibility not confirmed',
     detail:
-      'The file passes technical validation, but the browser did not confirm playback. Use the preview as a final test.',
+      'The file passes technical validation, but the browser did not confirm playback. Use live playback as a final verification before exporting.',
     mimeType,
     canPlayType,
     mediaCapabilities,
@@ -462,20 +455,4 @@ function getAudioStateLabel(audioState: AudioState) {
   }
 
   return 'High Audio'
-}
-
-function getRecommendation(audioState: AudioState, projectedTruePeakDbtp: number) {
-  if (projectedTruePeakDbtp > -1) {
-    return 'Consider checking the preview as the headroom before clipping is very short.'
-  }
-
-  if (audioState === 'high') {
-    return 'The file is already loud; increase only if you need more presence on mobile.'
-  }
-
-  if (audioState === 'adequate') {
-    return 'You can increase slightly, but extreme gain is not necessary.'
-  }
-
-  return `You can safely increase and compare the same ${PREVIEW_SECONDS}-second segment.`
 }

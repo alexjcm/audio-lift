@@ -2,7 +2,6 @@ import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg'
 import classWorkerURL from '@ffmpeg/ffmpeg/worker?url'
 import coreURL from '@ffmpeg/core?url'
 import wasmURL from '@ffmpeg/core/wasm?url'
-import { PREVIEW_SECONDS } from './constants'
 import { getFileExtension, getPreviewMimeType } from './validation'
 import type { AudioAnalysis, ProbeResult, ProbeStream } from '../types'
 
@@ -146,27 +145,20 @@ class BrowserMediaEngine {
     })
   }
 
-  async createPreview(file: File, gainDb: number, onProgress?: ProgressHandler) {
-    return this.renderAdjustedAsset(file, gainDb, true, onProgress)
-  }
-
   async exportAdjustedFile(file: File, gainDb: number, onProgress?: ProgressHandler) {
-    return this.renderAdjustedAsset(file, gainDb, false, onProgress)
+    return this.renderAdjustedAsset(file, gainDb, onProgress)
   }
 
   private async renderAdjustedAsset(
     file: File,
     gainDb: number,
-    previewOnly: boolean,
     onProgress?: ProgressHandler,
   ) {
     await this.load()
 
     const extension = getFileExtension(file.name) || 'mp4'
     const fileStem = file.name.replace(/\.[^.]+$/, '')
-    const outputName = previewOnly
-      ? `${fileStem}-preview.${extension}`
-      : `${fileStem}-audio-lift.${extension}`
+    const outputName = `${fileStem}-audio-lift.${extension}`
     const outputPath = `/work/${outputName}`
 
     return this.withMountedInput(file, async (inputPath) => {
@@ -190,7 +182,6 @@ class BrowserMediaEngine {
         const args = [
           '-i',
           inputPath,
-          ...(previewOnly ? ['-t', String(PREVIEW_SECONDS)] : []),
           '-map',
           '0:v:0',
           '-map',

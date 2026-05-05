@@ -6,7 +6,6 @@ import { GainControlPanel } from './components/GainControlPanel'
 import { HelpPanel } from './components/HelpPanel'
 import { PlaybackSupportPanel } from './components/PlaybackSupportPanel'
 import { PreviewPanel } from './components/PreviewPanel'
-import { UploadPanel } from './components/UploadPanel'
 import { useAudioLiftWorkflow } from './hooks/useAudioLiftWorkflow'
 
 function App() {
@@ -15,30 +14,31 @@ function App() {
   return (
     <main className="mx-auto w-[min(1280px,100%)] min-h-screen bg-ozone-bg selection:bg-ozone-accent selection:text-ozone-bg">
       <div className="px-4 pb-4 pt-0 md:p-6 lg:p-8">
-        <section className="grid grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[1fr_400px]">
+        <section className="grid grid-cols-1 items-start gap-3 md:gap-6 lg:grid-cols-[1fr_400px]">
           {/* Left Column: Primary Visualizer & Core Workflow */}
-          <div className="grid gap-4 md:gap-6">
+          <div className="grid gap-3 md:gap-6">
             <PreviewPanel
               activeVideoSrc={workflow.activeVideoSrc}
-              comparisonLoopEnabled={workflow.comparisonLoopEnabled}
-              listeningModeLabel={workflow.listeningModeLabel}
+              currentTime={workflow.currentTime}
+              duration={workflow.duration}
+              fileName={workflow.selectedFile?.name ?? null}
+              isPlaying={workflow.isPlaying}
+              onFileSelection={workflow.handleFileSelection}
+              onEnded={workflow.handleVideoEnded}
               onLoadedMetadata={workflow.handleVideoLoadedMetadata}
+              onPause={workflow.handleVideoPause}
+              onPlay={workflow.handleVideoPlay}
+              onPlayPause={workflow.handlePlayPause}
               onPreviewModeChange={workflow.handlePreviewModeChange}
-              onReplayComparison={workflow.handleReplayComparison}
-              onToggleComparisonLoop={workflow.handleToggleComparisonLoop}
+              onSeekChange={workflow.handleSeekChange}
               onTimeUpdate={workflow.handleVideoTimeUpdate}
-              previewAsset={workflow.previewAsset}
               previewMode={workflow.previewMode}
               videoRef={workflow.videoRef}
-            />
-
-            <UploadPanel
-              onFileSelection={workflow.handleFileSelection}
             />
           </div>
 
           {/* Right Column: Controls & Analytics */}
-          <div className="grid gap-4 md:gap-6">
+          <div className="grid gap-3 md:gap-6">
             {workflow.playbackSupport ? (
               <PlaybackSupportPanel playbackSupport={workflow.playbackSupport} />
             ) : null}
@@ -48,11 +48,10 @@ function App() {
             ) : null}
 
             {workflow.selectedFile ? (
-              <div className="grid animate-in gap-4 fade-in slide-in-from-right-4 duration-500 md:gap-6">
+              <div className="grid animate-in gap-3 fade-in slide-in-from-right-4 duration-500 md:gap-6">
                 <MediaTechnicalPanel
                   mediaSummary={workflow.mediaSummary}
                   selectedFile={workflow.selectedFile}
-                  phase={workflow.phase}
                   baseAnalysis={workflow.baseAnalysis}
                   derivedAnalysis={workflow.derivedAnalysis}
                 />
@@ -62,13 +61,12 @@ function App() {
                   derivedAnalysis={workflow.derivedAnalysis}
                   feedbackMessages={workflow.feedbackMessages}
                   gainDb={workflow.gainDb}
-                  onGainChange={workflow.setGainDb}
+                  onGainChange={workflow.handleGainChange}
                 />
 
                 {workflow.canAdjustVolume ? (
                   <ActionsPanel
                     onExport={workflow.handleExport}
-                    onGeneratePreview={workflow.handleGeneratePreview}
                     phase={workflow.phase}
                   />
                 ) : null}

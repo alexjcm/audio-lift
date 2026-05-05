@@ -8,16 +8,23 @@ Powered by **FFmpeg.wasm** and **WebAssembly**, Audio Lift processes your videos
 
 - **Local Processing:** Everything happens on your device. Your videos never leave your browser.
 - **Precision Analysis:** Accurate Loudness (LUFS) and True Peak measurement for professional-grade adjustments.
-- **Smart Preview:** Generates a 6-second preview to validate audio adjustments before exporting the full file.
+- **Live Preview:** Compare `Original Signal` and `Processed Output` instantly while moving the gain control in real time.
 - **Video Preservation:** Adjusts audio without re-encoding the video (Stream Copy) whenever technically feasible, maintaining original quality and saving time.
-- **Mobile Optimized:** Compact and fluid interface designed for fast workflows on mobile devices.
-- **PWA Ready:** Install it on your device and use it like a native application.
+- **Quality-First Export:** Final export is rendered with FFmpeg.wasm while preserving the original video stream whenever possible.
+- **Export Clipping Alerts:** The app warns when the current gain setting would make the exported file cross `0 dBTP`.
 
 ## 🎵 Audio Standards
 
 Audio Lift follows industry-standard metering to ensure broadcast-quality results:
 - **Loudness (LUFS):** Measured using the **EBU R128** standard for consistent perceived volume.
-- **True Peak (dBTP):** Analyzed to prevent digital clipping and ensure high-fidelity playback across all devices.
+- **True Peak (dBTP):** Measured using **ITU-R BS.1770** style true-peak analysis and used to estimate whether the exported file will clip.
+
+## 🔁 Current Workflow
+
+1. **Import Media** directly from the preview bar.
+2. **Analyze** the file locally for codec, loudness, true peak, and audio metadata.
+3. **Adjust Gain** with the live fader while listening to `Original Signal` or `Processed Output`.
+4. **Export Master** to render the final file locally with FFmpeg.wasm.
 
 ## 🎨 Design Philosophy
 
@@ -49,7 +56,15 @@ Open `http://localhost:5173` in your browser.
 
 ## 📦 Production Build
 
+```bash
 npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
 
 ## 📄 License
 

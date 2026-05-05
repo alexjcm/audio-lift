@@ -1,9 +1,7 @@
 export type ProcessingPhase =
   | 'idle'
-  | 'analyzing'
   | 'ready'
   | 'blocked'
-  | 'previewing'
   | 'exporting'
   | 'error'
 
@@ -23,7 +21,6 @@ export type ValidationCode =
   | 'missing-audio'
   | 'unsupported-video-codec'
   | 'analysis-failed'
-  | 'preview-failed'
   | 'export-failed'
 
 export interface ValidationIssue {
@@ -101,10 +98,10 @@ export interface AudioAnalysis {
 export interface DerivedAnalysis {
   gainDb: number
   projectedTruePeakDbtp: number
+  exportWillClip: boolean
   audioState: AudioState
   audioStateLabel: string
   marginLabel: MarginLabel
-  recommendation: string
 }
 
 export interface GeneratedAsset {

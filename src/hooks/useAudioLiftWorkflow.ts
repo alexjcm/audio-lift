@@ -1,10 +1,7 @@
 import { startTransition, useEffect, useRef, useState } from 'react'
-import {
-  COMPARISON_LOOP_SECONDS,
-  DEFAULT_GAIN_DB,
-  PREVIEW_SECONDS,
-} from '../lib/constants'
+import { DEFAULT_GAIN_DB } from '../lib/constants'
 import { browserMediaEngine } from '../lib/ffmpeg'
+import { LivePreviewEngine } from '../lib/livePreview'
 import {
   assessBrowserPlaybackSupport,
   buildDerivedAnalysis,
@@ -26,8 +23,15 @@ import type {
 export function useAudioLiftWorkflow() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const requestIdRef = useRef(0)
-  const pendingSeekRef = useRef(0)
-  const wasPlayingBeforeSwitchRef = useRef(false)
+  const livePreviewRef = useRef<LivePreviewEngine | null>(null)
+  const selectedFileUrlRef = useRef<string | null>(null)
+  const exportAssetRef = useRef<GeneratedAsset | null>(null)
+
+  if (!livePreviewRef.current) {
+    livePreviewRef.current = new LivePreviewEngine()
+  }
+
+  const livePreview = livePreviewRef.current
 
   const [phase, setPhase] = useState<ProcessingPhase>('idle')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -38,77 +42,51 @@ export function useAudioLiftWorkflow() {
     useState<BrowserPlaybackSupport | null>(null)
   const [gainDb, setGainDb] = useState(DEFAULT_GAIN_DB)
   const [previewMode, setPreviewMode] = useState<PreviewMode>('original')
-  const [previewAsset, setPreviewAsset] = useState<GeneratedAsset | null>(null)
   const [exportAsset, setExportAsset] = useState<GeneratedAsset | null>(null)
   const [blockingIssue, setBlockingIssue] = useState<ValidationIssue | null>(null)
-  const [comparisonLoopEnabled, setComparisonLoopEnabled] = useState(false)
-  const [comparisonStartTime, setComparisonStartTime] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
 
   useEffect(() => {
-    return () => {
-      if (selectedFileUrl) {
-        URL.revokeObjectURL(selectedFileUrl)
-      }
-    }
-  }, [selectedFileUrl])
-
-  useEffect(() => {
-    return () => {
-      if (previewAsset) {
-        URL.revokeObjectURL(previewAsset.url)
-      }
-    }
-  }, [previewAsset])
-
-  useEffect(() => {
-    return () => {
-      if (exportAsset) {
-        URL.revokeObjectURL(exportAsset.url)
-      }
-    }
-  }, [exportAsset])
-
-  useEffect(() => {
-    setPreviewMode('original')
-    setComparisonLoopEnabled(false)
-    setComparisonStartTime(0)
-    pendingSeekRef.current = 0
-    wasPlayingBeforeSwitchRef.current = false
-
-    if (previewAsset) {
-      URL.revokeObjectURL(previewAsset.url)
-      setPreviewAsset(null)
-    }
-
-    if (exportAsset) {
-      URL.revokeObjectURL(exportAsset.url)
-      setExportAsset(null)
-    }
+    livePreview.setGainDb(gainDb)
   }, [gainDb])
+
+  useEffect(() => {
+    livePreview.setMode(previewMode)
+  }, [previewMode])
+
+  useEffect(() => {
+    return () => {
+      revokeObjectUrl(selectedFileUrlRef.current)
+      revokeObjectUrl(exportAssetRef.current?.url ?? null)
+      livePreview.detach()
+    }
+  }, [])
 
   const derivedAnalysis = baseAnalysis
     ? buildDerivedAnalysis(baseAnalysis, gainDb)
     : null
   const canAdjustVolume = Boolean(baseAnalysis && derivedAnalysis)
   const feedbackMessages = getFeedbackMessages(baseAnalysis, derivedAnalysis)
-  const activeVideoSrc =
-    previewMode === 'adjusted' && previewAsset ? previewAsset.url : selectedFileUrl
-  const listeningModeLabel =
-    previewMode === 'adjusted' ? 'Processed Output' : 'Original Signal'
+  const activeVideoSrc = selectedFileUrl
 
-  const capturePlaybackContext = (fallbackTime = 0) => {
-    const element = videoRef.current
-    const time = clampPlaybackTime(
-      element?.currentTime ?? fallbackTime,
-      getComparableDuration(element),
-    )
+  const replaceSelectedFileUrl = (nextUrl: string | null) => {
+    if (selectedFileUrlRef.current && selectedFileUrlRef.current !== nextUrl) {
+      revokeObjectUrl(selectedFileUrlRef.current)
+    }
 
-    pendingSeekRef.current = time
-    wasPlayingBeforeSwitchRef.current = Boolean(
-      element && !element.paused && !element.ended,
-    )
+    selectedFileUrlRef.current = nextUrl
+    setSelectedFileUrl(nextUrl)
+  }
 
-    return time
+  const replaceExportAsset = (nextAsset: GeneratedAsset | null) => {
+    if (exportAssetRef.current?.url && exportAssetRef.current !== nextAsset) {
+      revokeObjectUrl(exportAssetRef.current.url)
+    }
+
+    exportAssetRef.current = nextAsset
+    setExportAsset(nextAsset)
   }
 
   const resetForNewSelection = () => {
@@ -118,37 +96,34 @@ export function useAudioLiftWorkflow() {
     setBlockingIssue(null)
     setPhase('idle')
     setPreviewMode('original')
-    setComparisonLoopEnabled(false)
-    setComparisonStartTime(0)
-    pendingSeekRef.current = 0
-    wasPlayingBeforeSwitchRef.current = false
+    setIsPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    replaceExportAsset(null)
+    livePreview.detach()
+  }
 
-    if (previewAsset) {
-      URL.revokeObjectURL(previewAsset.url)
-      setPreviewAsset(null)
+  const handleGainChange = (value: number) => {
+    if (value === gainDb) {
+      return
     }
 
-    if (exportAsset) {
-      URL.revokeObjectURL(exportAsset.url)
-      setExportAsset(null)
-    }
+    setGainDb(value)
+    setPreviewMode('original')
+    replaceExportAsset(null)
   }
 
   const handleFileSelection = async (file: File) => {
     requestIdRef.current += 1
     const requestId = requestIdRef.current
 
-    if (selectedFileUrl) {
-      URL.revokeObjectURL(selectedFileUrl)
-    }
-
     const localUrl = URL.createObjectURL(file)
 
     startTransition(() => {
-      setSelectedFile(file)
-      setSelectedFileUrl(localUrl)
-      setGainDb(DEFAULT_GAIN_DB)
       resetForNewSelection()
+      setSelectedFile(file)
+      replaceSelectedFileUrl(localUrl)
+      setGainDb(DEFAULT_GAIN_DB)
     })
 
     const basicIssue = validateSelectedFile(file)
@@ -223,54 +198,6 @@ export function useAudioLiftWorkflow() {
     }
   }
 
-  const handleGeneratePreview = async () => {
-    if (!selectedFile || !derivedAnalysis || !mediaSummary) {
-      return
-    }
-
-    setPhase('previewing')
-
-    try {
-      const result = await browserMediaEngine.createPreview(
-        selectedFile,
-        derivedAnalysis.gainDb,
-        () => {},
-      )
-
-      if (previewAsset) {
-        URL.revokeObjectURL(previewAsset.url)
-      }
-
-      const previewUrl = URL.createObjectURL(result.blob)
-      const anchorTime = capturePlaybackContext()
-
-      setPreviewAsset({
-        name: result.name,
-        sizeBytes: result.blob.size,
-        url: previewUrl,
-        mediaSummary: buildMediaSummary(result.probe, {
-          name: result.name,
-          size: result.blob.size,
-        }),
-      })
-      setComparisonStartTime(anchorTime)
-      setPreviewMode('adjusted')
-      setPhase('ready')
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Error creating preview'
-
-      setPhase('error')
-      setBlockingIssue({
-        code: 'preview-failed',
-        message,
-        canRecover: true,
-      })
-    } finally {
-      // Cleanup
-    }
-  }
-
   const handleExport = async () => {
     if (!selectedFile || !derivedAnalysis) {
       return
@@ -285,13 +212,9 @@ export function useAudioLiftWorkflow() {
         () => {},
       )
 
-      if (exportAsset) {
-        URL.revokeObjectURL(exportAsset.url)
-      }
-
       const exportUrl = URL.createObjectURL(result.blob)
 
-      setExportAsset({
+      replaceExportAsset({
         name: result.name,
         sizeBytes: result.blob.size,
         url: exportUrl,
@@ -318,49 +241,10 @@ export function useAudioLiftWorkflow() {
   }
 
   const handlePreviewModeChange = (mode: PreviewMode) => {
-    if (mode === 'adjusted' && !previewAsset) {
+    if (mode === 'adjusted' && !selectedFileUrl) {
       return
     }
-
-    const anchorTime = capturePlaybackContext()
-    setComparisonStartTime(anchorTime)
     setPreviewMode(mode)
-  }
-
-  const handleReplayComparison = () => {
-    const element = videoRef.current
-    if (!element) {
-      return
-    }
-
-    const comparableDuration = getComparableDuration(element)
-    const replayStart = comparisonLoopEnabled
-      ? comparisonStartTime
-      : Math.max(0, element.currentTime - COMPARISON_LOOP_SECONDS)
-    const boundedStart = clampPlaybackTime(replayStart, comparableDuration)
-
-    setComparisonStartTime(boundedStart)
-    pendingSeekRef.current = boundedStart
-    element.currentTime = boundedStart
-    void element.play().catch(() => undefined)
-  }
-
-  const handleToggleComparisonLoop = () => {
-    const nextEnabled = !comparisonLoopEnabled
-
-    if (nextEnabled) {
-      const element = videoRef.current
-      const comparableDuration = getComparableDuration(element)
-      const anchorTime = clampPlaybackTime(
-        element?.currentTime ?? pendingSeekRef.current,
-        comparableDuration,
-      )
-
-      setComparisonStartTime(anchorTime)
-      pendingSeekRef.current = anchorTime
-    }
-
-    setComparisonLoopEnabled(nextEnabled)
   }
 
   const handleVideoLoadedMetadata = () => {
@@ -369,19 +253,53 @@ export function useAudioLiftWorkflow() {
       return
     }
 
-    const targetTime = clampPlaybackTime(
-      pendingSeekRef.current,
-      getComparableDuration(element),
-    )
+    setCurrentTime(element.currentTime)
+    setDuration(Number.isFinite(element.duration) ? element.duration : 0)
+    livePreview.attach(element)
+    livePreview.setGainDb(gainDb)
+    livePreview.setMode(previewMode)
+  }
 
-    if (targetTime > 0) {
-      element.currentTime = targetTime
+  const handlePlayPause = async () => {
+    const element = videoRef.current
+    if (!element) {
+      return
     }
 
-    if (wasPlayingBeforeSwitchRef.current) {
-      wasPlayingBeforeSwitchRef.current = false
-      void element.play().catch(() => undefined)
+    if (element.paused || element.ended) {
+      try {
+        await element.play()
+      } catch {
+        // Playback can still be blocked until the browser accepts the gesture.
+      }
+      return
     }
+
+    element.pause()
+  }
+
+  const handleSeekChange = (nextTime: number) => {
+    const element = videoRef.current
+    if (!element) {
+      return
+    }
+
+    element.currentTime = nextTime
+    setCurrentTime(nextTime)
+  }
+
+  const handleVideoPlay = () => {
+    setIsPlaying(true)
+  }
+
+  const handleVideoPause = () => {
+    setIsPlaying(false)
+  }
+
+  const handleVideoEnded = () => {
+    const element = videoRef.current
+    setIsPlaying(false)
+    setCurrentTime(element ? element.duration : 0)
   }
 
   const handleVideoTimeUpdate = () => {
@@ -390,28 +308,7 @@ export function useAudioLiftWorkflow() {
       return
     }
 
-    if (comparisonLoopEnabled) {
-      const comparableDuration = getComparableDuration(element)
-      const loopEnd = Math.min(
-        comparisonStartTime + COMPARISON_LOOP_SECONDS,
-        comparableDuration,
-      )
-
-      if (element.currentTime >= loopEnd) {
-        element.currentTime = comparisonStartTime
-        void element.play().catch(() => undefined)
-      }
-      return
-    }
-
-    if (previewMode !== 'original') {
-      return
-    }
-
-    if (element.currentTime >= PREVIEW_SECONDS) {
-      element.currentTime = 0
-      void element.play().catch(() => undefined)
-    }
+    setCurrentTime(element.currentTime)
   }
 
   return {
@@ -423,23 +320,25 @@ export function useAudioLiftWorkflow() {
     exportAsset,
     feedbackMessages,
     gainDb,
-    comparisonLoopEnabled,
     handleExport,
     handleFileSelection,
-    handleGeneratePreview,
+    handlePlayPause,
+    handleGainChange,
     handlePreviewModeChange,
-    handleReplayComparison,
-    handleToggleComparisonLoop,
+    handleSeekChange,
+    handleVideoEnded,
     handleVideoLoadedMetadata,
+    handleVideoPause,
+    handleVideoPlay,
     handleVideoTimeUpdate,
-    listeningModeLabel,
+    currentTime,
     mediaSummary,
+    duration,
+    isPlaying,
     phase,
     playbackSupport,
-    previewAsset,
     previewMode,
     selectedFile,
-    setGainDb,
     videoRef,
   }
 }
@@ -454,15 +353,10 @@ function triggerFileDownload(url: string, fileName: string) {
   anchor.remove()
 }
 
-function getComparableDuration(element: HTMLVideoElement | null) {
-  const duration = Number.isFinite(element?.duration) ? element?.duration ?? 0 : 0
-  return Math.min(duration || PREVIEW_SECONDS, PREVIEW_SECONDS)
-}
-
-function clampPlaybackTime(time: number, duration: number) {
-  if (!Number.isFinite(time) || time <= 0) {
-    return 0
+function revokeObjectUrl(url: string | null) {
+  if (!url) {
+    return
   }
 
-  return Math.min(time, Math.max(duration - 0.05, 0))
+  URL.revokeObjectURL(url)
 }
