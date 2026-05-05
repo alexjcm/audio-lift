@@ -65,10 +65,10 @@ export function PreviewPanel({
         {/* Video / Visualizer Shell */}
         <div
           className={cn(
-            'relative overflow-hidden rounded-sm border border-ozone-border-bright shadow-inner max-[720px]:h-[220px]',
+            'relative grid min-h-[220px] place-items-center overflow-hidden rounded-sm border border-ozone-border-bright bg-black shadow-inner grid-technical max-[720px]:h-[220px]',
             activeVideoSrc
-              ? 'mx-auto flex w-fit max-w-full justify-center bg-black grid-technical'
-              : 'grid min-h-[180px] place-items-center bg-black grid-technical',
+              ? 'px-3 py-3'
+              : 'min-h-[180px]',
           )}
         >
           {activeVideoSrc ? (
@@ -87,59 +87,6 @@ export function PreviewPanel({
                 onPlay={onPlay}
                 onTimeUpdate={onTimeUpdate}
               />
-
-              <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-3">
-                <div className="pointer-events-auto flex w-full max-w-[min(92%,34rem)] items-center gap-2 rounded-full border border-white/12 bg-black/58 px-3 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void onPlayPause()
-                    }}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                    aria-label={isPlaying ? 'Pause video' : 'Play video'}
-                  >
-                    {isPlaying ? (
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-5.5 w-5.5"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
-                      </svg>
-                    ) : (
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="ml-0.5 h-5.5 w-5.5"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </button>
-
-                  <div className="min-w-0 flex-1">
-                    <input
-                      type="range"
-                      min={0}
-                      max={scrubberMax}
-                      step="any"
-                      value={scrubberValue}
-                      onChange={(event) =>
-                        onSeekChange(Number(event.target.value))
-                      }
-                      disabled={scrubberMax <= 0}
-                      aria-label="Seek video"
-                      className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40"
-                    />
-                  </div>
-
-                  <div className="shrink-0 text-right font-mono text-[0.58rem] text-white/84">
-                    {formatDuration(currentTime)} / {formatDuration(duration)}
-                  </div>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="grid min-h-[180px] h-full w-full place-items-center p-6 text-center text-technical text-ozone-text-muted opacity-40">
@@ -151,6 +98,61 @@ export function PreviewPanel({
               </div>
             </div>
           )}
+
+          {activeVideoSrc ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
+              <div className="pointer-events-auto flex w-full max-w-[32rem] items-center gap-2 rounded-full border border-white/12 bg-black/58 px-3 py-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void onPlayPause()
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                >
+                  {isPlaying ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
+                    </svg>
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="ml-0.5 h-5 w-5"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
+                </button>
+
+                <div className="min-w-0 flex flex-1 items-center">
+                  <input
+                    type="range"
+                    min={0}
+                    max={scrubberMax}
+                    step="any"
+                    value={scrubberValue}
+                    onChange={(event) =>
+                      onSeekChange(Number(event.target.value))
+                    }
+                    disabled={scrubberMax <= 0}
+                    aria-label="Seek video"
+                    className="block h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40"
+                  />
+                </div>
+
+                <div className="shrink-0 text-right font-mono text-[0.54rem] text-white/84">
+                  {formatDuration(currentTime)} / {formatDuration(duration)}
+                </div>
+              </div>
+            </div>
+          ) : null}
           
           {/* Decorative Corner Elements */}
           <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-ozone-accent/30 pointer-events-none"></div>
@@ -160,27 +162,30 @@ export function PreviewPanel({
         </div>
 
         {activeVideoSrc ? (
-          <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <span
-                className="truncate font-mono text-[0.58rem] text-ozone-text-muted"
-                title={fileName ?? undefined}
-              >
-                <span className="text-ozone-accent/90">
-                  {formatFileNameMiddle(fileName ?? '', 12, 10)}
+          <>
+            <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className="truncate font-mono text-[0.58rem] text-ozone-text-muted"
+                  title={fileName ?? undefined}
+                >
+                  <span className="text-ozone-accent/90">
+                    {formatFileNameMiddle(fileName ?? '', 12, 10)}
+                  </span>
                 </span>
-              </span>
-              <label className="btn-technical inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
-                <input
-                  type="file"
-                  accept=".mp4,.mov,video/mp4,video/quicktime"
-                  onChange={handleFileInput}
-                  className="pointer-events-none absolute opacity-0"
-                />
-                Import Media
-              </label>
+
+                <label className="btn-technical inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
+                  <input
+                    type="file"
+                    accept=".mp4,.mov,video/mp4,video/quicktime"
+                    onChange={handleFileInput}
+                    className="pointer-events-none absolute opacity-0"
+                  />
+                  Import Media
+                </label>
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
             <div className="flex items-center justify-end">

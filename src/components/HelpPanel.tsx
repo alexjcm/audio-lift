@@ -21,7 +21,9 @@ export function HelpPanel() {
           </div>
           <span className="text-technical text-ozone-text-muted group-hover:text-ozone-text transition-colors">Information</span>
         </div>
-        <span className="text-[0.6rem] font-mono text-ozone-text-muted opacity-40">VER 1.0.4</span>
+        <span className="text-[0.6rem] font-mono text-ozone-text-muted opacity-40">
+          VER {__APP_VERSION__}
+        </span>
       </button>
 
       {isOpen ? (
@@ -37,4 +39,3 @@ export function HelpPanel() {
     </section>
   )
 }
-
