@@ -1,12 +1,15 @@
 import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg'
 import classWorkerURL from '@ffmpeg/ffmpeg/worker?url'
-import coreURL from '@ffmpeg/core?url'
-import wasmURL from '@ffmpeg/core/wasm?url'
 import { getFileExtension, getPreviewMimeType } from './validation'
 import type { AudioAnalysis, ProbeResult, ProbeStream } from '../types'
 
 const LOAD_TIMEOUT_MS = 20_000
 const BROWSER_METADATA_TIMEOUT_MS = 5_000
+const DEFAULT_FFMPEG_CORE_BASE_URL =
+  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm'
+const FFMPEG_CORE_BASE_URL = normalizeBaseUrl(
+  import.meta.env.VITE_FFMPEG_CORE_BASE_URL || DEFAULT_FFMPEG_CORE_BASE_URL,
+)
 
 type ProgressHandler = (progress: number) => void
 type GeneratedBlob = {
@@ -41,6 +44,19 @@ class BrowserMediaEngine {
     const timeoutId = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS)
 
     try {
+      const [coreURL, wasmURL] = await Promise.all([
+        createBlobUrl(
+          `${FFMPEG_CORE_BASE_URL}/ffmpeg-core.js`,
+          'text/javascript',
+          controller.signal,
+        ),
+        createBlobUrl(
+          `${FFMPEG_CORE_BASE_URL}/ffmpeg-core.wasm`,
+          'application/wasm',
+          controller.signal,
+        ),
+      ])
+
       await this.ffmpeg.load(
         {
           classWorkerURL,
@@ -350,6 +366,25 @@ class BrowserMediaEngine {
 }
 
 export const browserMediaEngine = new BrowserMediaEngine()
+
+function normalizeBaseUrl(value: string) {
+  return value.replace(/\/+$/, '')
+}
+
+async function createBlobUrl(
+  sourceUrl: string,
+  mimeType: string,
+  signal: AbortSignal,
+) {
+  const response = await fetch(sourceUrl, { signal })
+
+  if (!response.ok) {
+    throw new Error(`Could not download ${sourceUrl} (${response.status}).`)
+  }
+
+  const buffer = await response.arrayBuffer()
+  return URL.createObjectURL(new Blob([buffer], { type: mimeType }))
+}
 
 function readBrowserMetadata(file: File) {
   const objectUrl = URL.createObjectURL(file)

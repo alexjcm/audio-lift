@@ -19,7 +19,7 @@ export default defineConfig({
         name: 'Audio Lift',
         short_name: 'Audio Lift',
         description:
-          'Aumenta la ganancia del audio de videos cortos preservando el video original cuando el pipeline local lo permite.',
+          'Aumenta la ganancia del audio de videos preservando el video original cuando el pipeline local lo permite.',
         theme_color: '#090910',
         background_color: '#090910',
         display: 'standalone',
@@ -42,8 +42,39 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,wasm,webmanifest,png,ico}'],
-        maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,svg,webmanifest,png,ico}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/worker-.*\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ffmpeg-engine',
+              cacheableResponse: {
+                statuses: [200],
+              },
+              expiration: {
+                maxEntries: 8,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+          {
+            urlPattern:
+              /^https:\/\/cdn\.jsdelivr\.net\/npm\/@ffmpeg\/core@.*\/dist\/esm\/ffmpeg-core\.(?:js|wasm)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ffmpeg-core-cdn',
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 4,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+        ],
       },
     }),
   ],
