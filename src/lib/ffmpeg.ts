@@ -1,5 +1,4 @@
 import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg'
-import classWorkerURL from '@ffmpeg/ffmpeg/worker?url'
 import { getFileExtension, getPreviewMimeType } from './validation'
 import type { AudioAnalysis, ProbeResult, ProbeStream } from '../types'
 
@@ -59,7 +58,6 @@ class BrowserMediaEngine {
 
       await this.ffmpeg.load(
         {
-          classWorkerURL,
           coreURL,
           wasmURL,
         },
