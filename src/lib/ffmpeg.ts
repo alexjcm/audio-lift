@@ -181,10 +181,14 @@ class BrowserMediaEngine {
       const videoStream = inputProbe.streams.find(
         (stream) => stream.codec_type === 'video',
       )
+      const audioStream = inputProbe.streams.find(
+        (stream) => stream.codec_type === 'audio',
+      )
       const shouldForceHvc1 =
         videoStream?.codec_name === 'hevc' ||
         videoStream?.codec_tag_string === 'hev1' ||
         videoStream?.codec_tag_string === 'hvc1'
+      const audioBitrateArgs = getAudioBitrateArgs(audioStream)
 
       const handleProgress = ({ progress }: { progress: number }) => {
         onProgress?.(progress)
@@ -211,6 +215,7 @@ class BrowserMediaEngine {
           `volume=${gainDb.toFixed(1)}dB`,
           '-c:a',
           'aac',
+          ...audioBitrateArgs,
           '-movflags',
           '+faststart',
           outputPath,
@@ -367,6 +372,16 @@ export const browserMediaEngine = new BrowserMediaEngine()
 
 function normalizeBaseUrl(value: string) {
   return value.replace(/\/+$/, '')
+}
+
+function getAudioBitrateArgs(stream: ProbeStream | undefined) {
+  const parsed = Number.parseInt(stream?.bit_rate ?? '', 10)
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return []
+  }
+
+  return ['-b:a', String(parsed)]
 }
 
 async function createBlobUrl(
