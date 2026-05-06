@@ -166,7 +166,7 @@ export function PreviewPanel({
             <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
               <div className="flex items-center justify-between gap-3">
                 <span
-                  className="truncate font-mono text-[0.58rem] text-ozone-text-muted"
+                  className="truncate font-mono text-[0.66rem] text-ozone-text-muted"
                   title={fileName ?? undefined}
                 >
                   <span className="text-ozone-accent/90">
@@ -174,7 +174,7 @@ export function PreviewPanel({
                   </span>
                 </span>
 
-                <label className="btn-technical inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
+                <label className="btn-technical inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
                   <input
                     type="file"
                     accept=".mp4,.mov,video/mp4,video/quicktime"
@@ -189,7 +189,7 @@ export function PreviewPanel({
         ) : (
           <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
             <div className="flex items-center justify-end">
-              <label className="btn-technical inline-flex cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
+              <label className="btn-technical inline-flex cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
                 <input
                   type="file"
                   accept=".mp4,.mov,video/mp4,video/quicktime"

@@ -193,8 +193,6 @@ export function useAudioLiftWorkflow() {
         message,
         canRecover: true,
       })
-    } finally {
-      // Cleanup if needed
     }
   }
 
@@ -235,8 +233,6 @@ export function useAudioLiftWorkflow() {
         message,
         canRecover: true,
       })
-    } finally {
-      // Cleanup
     }
   }
 

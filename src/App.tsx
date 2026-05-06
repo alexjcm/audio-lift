@@ -14,7 +14,7 @@ function App() {
   return (
     <main className="mx-auto w-[min(1280px,100%)] min-h-screen bg-ozone-bg selection:bg-ozone-accent selection:text-ozone-bg">
       <div className="px-4 pb-4 pt-0 md:p-6 lg:p-8">
-        <section className="grid grid-cols-1 items-start gap-3 md:gap-6 lg:grid-cols-[1fr_400px]">
+        <section className="grid grid-cols-1 items-start gap-3 md:gap-6 lg:justify-center lg:grid-cols-[560px_400px]">
           {/* Left Column: Primary Visualizer & Core Workflow */}
           <div className="grid gap-3 md:gap-6">
             <PreviewPanel

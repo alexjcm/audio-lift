@@ -21,15 +21,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'favicon.svg',
-        'app-icon.svg',
-        'app-icon-maskable.svg',
+        'favicon.ico',
+        'apple-touch-icon-180x180.png',
       ],
       manifest: {
         name: 'Audio Lift',
         short_name: 'Audio Lift',
         description:
-          'Aumenta la ganancia del audio de videos preservando el video original cuando el pipeline local lo permite.',
+          'Increase video audio gain while preserving the original video stream whenever the local pipeline allows it.',
         theme_color: '#090910',
         background_color: '#090910',
         display: 'standalone',
@@ -38,15 +37,25 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/app-icon.svg',
+            src: '/pwa-64x64.png',
+            sizes: '64x64',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/app-icon-maskable.svg',
+            src: '/maskable-icon-512x512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],

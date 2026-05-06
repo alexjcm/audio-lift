@@ -7,7 +7,7 @@ export const panelClass =
 
 export const compactPanelClass = cn(panelClass, 'py-3 max-[720px]:py-2')
 
-export const pillBaseClass =
+const pillBaseClass =
   'inline-flex items-center justify-center rounded-[2px] border border-white/5 px-2.5 py-1.5 font-mono text-[0.65rem] font-bold uppercase leading-none tracking-[0.1em] transition-all duration-200'
 
 export function getPillClass(tone: string) {
@@ -29,4 +29,3 @@ export function getPillClass(tone: string) {
       return base
   }
 }
-

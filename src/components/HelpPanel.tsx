@@ -19,21 +19,51 @@ export function HelpPanel() {
               <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3m0 4h.01" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="text-technical text-ozone-text-muted group-hover:text-ozone-text transition-colors">Information</span>
         </div>
         <span className="text-[0.6rem] font-mono text-ozone-text-muted opacity-40">
-          VER {__APP_VERSION__}
+          Version {__APP_VERSION__}
         </span>
       </button>
 
       {isOpen ? (
         <div id="app-help-panel" className="mt-4 grid gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
           <p className="text-[0.7rem] leading-relaxed text-ozone-text-muted border-l border-ozone-accent/30 pl-3">
-            PWA local-first para aumentar la ganancia del audio sin subir tu video.
+            Local-first PWA to increase audio gain without uploading your video.
           </p>
           <p className="text-[0.7rem] leading-relaxed text-ozone-text-muted border-l border-ozone-border pl-3">
-            Analiza con medición EBU R128, ajusta manualmente en dB y exporta un archivo nuevo preservando el video cuando el pipeline lo permite.
+            Analyze with EBU R128 loudness measurement, adjust gain manually in dB, and export a new file while preserving the original video whenever the pipeline allows it.
           </p>
+
+          <div className="mt-2 flex flex-col gap-2 border-l border-ozone-border pl-3 pt-2">
+            <span className="text-[0.65rem] font-bold text-ozone-text uppercase tracking-wider">
+              Audio Terminology
+            </span>
+
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">Clipping:</span> 
+              <span className="text-ozone-text-muted ml-1">When audio exceeds the digital limit (0.0 dBTP), cutting off the tops of sound waves and causing harsh, crackling distortion.</span>
+            </div>
+
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">Gain (dB):</span> 
+              <span className="text-ozone-text-muted ml-1">The amount of raw amplification applied to the audio. An increase of +3 dB effectively doubles the sound power.</span>
+            </div>
+            
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">LUFS:</span> 
+              <span className="text-ozone-text-muted ml-1">Measures perceived human loudness. It is the standard used by streaming platforms like Spotify and YouTube.</span>
+            </div>
+
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">dBTP (True Peak):</span> 
+              <span className="text-ozone-text-muted ml-1">Measures invisible inter-sample peaks. If it exceeds 0.0, speakers will clip and distort. Safe limit is -1.0.</span>
+            </div>
+
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">EBU R128:</span> 
+              <span className="text-ozone-text-muted ml-1">The international broadcast standard dictating optimal levels to prevent audio distortion.</span>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
