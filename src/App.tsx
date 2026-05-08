@@ -1,4 +1,5 @@
 import { ActionsPanel } from './components/ActionsPanel'
+import { BassControlPanel } from './components/BassControlPanel'
 import { MediaTechnicalPanel } from './components/MediaTechnicalPanel'
 import { BlockingIssuePanel } from './components/BlockingIssuePanel'
 import { ExportReadyPanel } from './components/ExportReadyPanel'
@@ -6,6 +7,7 @@ import { GainControlPanel } from './components/GainControlPanel'
 import { HelpPanel } from './components/HelpPanel'
 import { PlaybackSupportPanel } from './components/PlaybackSupportPanel'
 import { PreviewPanel } from './components/PreviewPanel'
+import { SettingsPanel } from './components/SettingsPanel'
 import { useAudioLiftWorkflow } from './hooks/useAudioLiftWorkflow'
 
 function App() {
@@ -14,6 +16,18 @@ function App() {
   return (
     <main className="mx-auto w-[min(1280px,100%)] min-h-screen bg-ozone-bg selection:bg-ozone-accent selection:text-ozone-bg">
       <div className="px-4 pb-4 pt-0 md:p-6 lg:p-8">
+        <div className="mb-3 md:mb-6">
+          <SettingsPanel
+            bassEqHighHz={workflow.bassEqHighHz}
+            bassEqLowHz={workflow.bassEqLowHz}
+            onBassEqHighChange={workflow.handleBassEqHighChange}
+            onBassEqLowChange={workflow.handleBassEqLowChange}
+            onReset={workflow.handleResetGlobalSettings}
+            onVirtualBassCutoffChange={workflow.handleVirtualBassCutoffChange}
+            virtualBassCutoffHz={workflow.virtualBassCutoffHz}
+          />
+        </div>
+
         <section className="grid grid-cols-1 items-start gap-3 md:gap-6 lg:justify-center lg:grid-cols-[560px_400px]">
           {/* Left Column: Primary Visualizer & Core Workflow */}
           <div className="grid gap-3 md:gap-6">
@@ -64,10 +78,21 @@ function App() {
                   onGainChange={workflow.handleGainChange}
                 />
 
+                <BassControlPanel
+                  bassEqDb={workflow.bassEqDb}
+                  bassEqHighHz={workflow.bassEqHighHz}
+                  bassEqLowHz={workflow.bassEqLowHz}
+                  canAdjust={workflow.canAdjustVolume}
+                  onBassEqChange={workflow.handleBassEqChange}
+                  onVirtualBassChange={workflow.handleVirtualBassChange}
+                  virtualBassDb={workflow.virtualBassDb}
+                />
+
                 {workflow.canAdjustVolume ? (
                   <ActionsPanel
                     onExport={workflow.handleExport}
                     phase={workflow.phase}
+                    virtualBassActive={workflow.virtualBassDb > 0}
                   />
                 ) : null}
               </div>
@@ -84,7 +109,6 @@ function App() {
             {workflow.exportAsset ? (
               <ExportReadyPanel
                 exportAsset={workflow.exportAsset}
-                gainDb={workflow.gainDb}
               />
             ) : null}
 

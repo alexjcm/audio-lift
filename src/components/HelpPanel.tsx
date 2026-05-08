@@ -31,7 +31,7 @@ export function HelpPanel() {
             Local-first PWA to increase audio gain without uploading your video.
           </p>
           <p className="text-[0.7rem] leading-relaxed text-ozone-text-muted border-l border-ozone-border pl-3">
-            Analyze with EBU R128 loudness measurement, adjust gain manually in dB, and export a new file while preserving the original video whenever the pipeline allows it.
+            Analyze with EBU R128 loudness measurement, adjust gain and low-end processing in dB, and export a new file while preserving the original video whenever the pipeline allows it.
           </p>
 
           <div className="mt-2 flex flex-col gap-2 border-l border-ozone-border pl-3 pt-2">
@@ -41,7 +41,7 @@ export function HelpPanel() {
 
             <div className="text-[0.65rem] leading-relaxed">
               <span className="font-mono text-ozone-accent">Clipping:</span> 
-              <span className="text-ozone-text-muted ml-1">When audio exceeds the digital limit (0.0 dBTP), cutting off the tops of sound waves and causing harsh, crackling distortion.</span>
+              <span className="text-ozone-text-muted ml-1">When audio exceeds the available digital headroom, cutting off waveform peaks and causing audible distortion.</span>
             </div>
 
             <div className="text-[0.65rem] leading-relaxed">
@@ -56,7 +56,12 @@ export function HelpPanel() {
 
             <div className="text-[0.65rem] leading-relaxed">
               <span className="font-mono text-ozone-accent">dBTP (True Peak):</span> 
-              <span className="text-ozone-text-muted ml-1">Measures invisible inter-sample peaks. If it exceeds 0.0, speakers will clip and distort. Safe limit is -1.0.</span>
+              <span className="text-ozone-text-muted ml-1">Measures inter-sample peaks that can overload DACs and codecs. This app targets a safety ceiling of -1.0 dBTP.</span>
+            </div>
+
+            <div className="text-[0.65rem] leading-relaxed">
+              <span className="font-mono text-ozone-accent">Virtual Bass:</span> 
+              <span className="text-ozone-text-muted ml-1">Generates audible harmonics from low-frequency content so small speakers suggest more bass than they can physically reproduce.</span>
             </div>
 
             <div className="text-[0.65rem] leading-relaxed">

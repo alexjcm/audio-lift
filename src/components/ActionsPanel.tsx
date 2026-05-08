@@ -4,11 +4,13 @@ import type { ProcessingPhase } from '../types'
 type ActionsPanelProps = {
   onExport: () => Promise<void>
   phase: ProcessingPhase
+  virtualBassActive: boolean
 }
 
 export function ActionsPanel({
   onExport,
   phase,
+  virtualBassActive,
 }: ActionsPanelProps) {
   const isProcessing = phase === 'exporting'
   const isExporting = phase === 'exporting'
@@ -16,6 +18,14 @@ export function ActionsPanel({
   return (
     <section className={cn(panelClass, 'px-3 py-2.5 max-[720px]:px-2.5 max-[720px]:py-2')}>
       <div className="grid grid-cols-1 gap-2.5">
+        {virtualBassActive ? (
+          <div className="rounded-sm border border-ozone-accent/16 bg-ozone-accent/6 px-3 py-2">
+            <span className="text-[0.62rem] font-mono uppercase tracking-[0.08em] text-ozone-accent">
+              Harmonic synthesis active
+            </span>
+          </div>
+        ) : null}
+
         <button
           type="button"
           className={cn(

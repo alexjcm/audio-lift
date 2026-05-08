@@ -97,11 +97,20 @@ export interface AudioAnalysis {
 
 export interface DerivedAnalysis {
   gainDb: number
+  bassEqDb: number
+  virtualBassDb: number
   projectedTruePeakDbtp: number
-  exportWillClip: boolean
+  exceedsTruePeakHeadroom: boolean
+  limiterLikelyRequired: boolean
   audioState: AudioState
   audioStateLabel: string
   marginLabel: MarginLabel
+}
+
+export interface GlobalSettings {
+  bassEqLowHz: number
+  bassEqHighHz: number
+  virtualBassCutoffHz: number
 }
 
 export interface GeneratedAsset {
@@ -109,4 +118,9 @@ export interface GeneratedAsset {
   sizeBytes: number
   url: string
   mediaSummary: MediaSummary | null
+  appliedGainDb: number
+  appliedBassEqDb: number
+  appliedVirtualBassDb: number
+  outputAnalysis: AudioAnalysis | null
+  warnings: string[]
 }

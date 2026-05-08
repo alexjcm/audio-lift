@@ -1,19 +1,33 @@
 import { startTransition, useEffect, useRef, useState } from 'react'
-import { DEFAULT_GAIN_DB } from '../lib/constants'
+import {
+  DEFAULT_BASS_EQ_DB,
+  DEFAULT_GAIN_DB,
+  DEFAULT_VIRTUAL_BASS_DB,
+  SETTINGS_STORAGE_KEY,
+} from '../lib/constants'
 import { browserMediaEngine } from '../lib/ffmpeg'
 import { LivePreviewEngine } from '../lib/livePreview'
+import {
+  clampBassEqHighHz,
+  clampBassEqLowHz,
+  clampVirtualBassCutoffHz,
+  getDefaultGlobalSettings,
+  normalizeGlobalSettings,
+} from '../lib/virtualBass'
 import {
   assessBrowserPlaybackSupport,
   buildDerivedAnalysis,
   buildMediaSummary,
   getBlockingIssue,
   getFeedbackMessages,
+  getRenderedMasterWarnings,
   validateSelectedFile,
 } from '../lib/validation'
 import type {
   AudioAnalysis,
   BrowserPlaybackSupport,
   GeneratedAsset,
+  GlobalSettings,
   MediaSummary,
   PreviewMode,
   ProcessingPhase,
@@ -41,6 +55,11 @@ export function useAudioLiftWorkflow() {
   const [playbackSupport, setPlaybackSupport] =
     useState<BrowserPlaybackSupport | null>(null)
   const [gainDb, setGainDb] = useState(DEFAULT_GAIN_DB)
+  const [bassEqDb, setBassEqDb] = useState(DEFAULT_BASS_EQ_DB)
+  const [virtualBassDb, setVirtualBassDb] = useState(DEFAULT_VIRTUAL_BASS_DB)
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() =>
+    loadGlobalSettings(),
+  )
   const [previewMode, setPreviewMode] = useState<PreviewMode>('original')
   const [exportAsset, setExportAsset] = useState<GeneratedAsset | null>(null)
   const [blockingIssue, setBlockingIssue] = useState<ValidationIssue | null>(null)
@@ -48,13 +67,39 @@ export function useAudioLiftWorkflow() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
+  const {
+    bassEqLowHz,
+    bassEqHighHz,
+    virtualBassCutoffHz,
+  } = globalSettings
+
   useEffect(() => {
     livePreview.setGainDb(gainDb)
-  }, [gainDb])
+  }, [gainDb, livePreview])
+
+  useEffect(() => {
+    livePreview.setBassEqDb(bassEqDb)
+  }, [bassEqDb, livePreview])
+
+  useEffect(() => {
+    livePreview.setBassEqRange(bassEqLowHz, bassEqHighHz)
+  }, [bassEqHighHz, bassEqLowHz, livePreview])
+
+  useEffect(() => {
+    livePreview.setVirtualBassDb(virtualBassDb)
+  }, [virtualBassDb, livePreview])
+
+  useEffect(() => {
+    livePreview.setVirtualBassCutoffHz(virtualBassCutoffHz)
+  }, [virtualBassCutoffHz, livePreview])
 
   useEffect(() => {
     livePreview.setMode(previewMode)
-  }, [previewMode])
+  }, [previewMode, livePreview])
+
+  useEffect(() => {
+    persistGlobalSettings(globalSettings)
+  }, [globalSettings])
 
   useEffect(() => {
     return () => {
@@ -62,10 +107,10 @@ export function useAudioLiftWorkflow() {
       revokeObjectUrl(exportAssetRef.current?.url ?? null)
       livePreview.detach()
     }
-  }, [])
+  }, [livePreview])
 
   const derivedAnalysis = baseAnalysis
-    ? buildDerivedAnalysis(baseAnalysis, gainDb)
+    ? buildDerivedAnalysis(baseAnalysis, gainDb, bassEqDb, virtualBassDb)
     : null
   const canAdjustVolume = Boolean(baseAnalysis && derivedAnalysis)
   const feedbackMessages = getFeedbackMessages(baseAnalysis, derivedAnalysis)
@@ -96,11 +141,18 @@ export function useAudioLiftWorkflow() {
     setBlockingIssue(null)
     setPhase('idle')
     setPreviewMode('original')
+    setGainDb(DEFAULT_GAIN_DB)
+    setBassEqDb(DEFAULT_BASS_EQ_DB)
+    setVirtualBassDb(DEFAULT_VIRTUAL_BASS_DB)
     setIsPlaying(false)
     setCurrentTime(0)
     setDuration(0)
     replaceExportAsset(null)
     livePreview.detach()
+  }
+
+  const invalidateExport = () => {
+    replaceExportAsset(null)
   }
 
   const handleGainChange = (value: number) => {
@@ -109,8 +161,60 @@ export function useAudioLiftWorkflow() {
     }
 
     setGainDb(value)
-    setPreviewMode('original')
-    replaceExportAsset(null)
+    invalidateExport()
+  }
+
+  const handleBassEqChange = (value: number) => {
+    if (value === bassEqDb) {
+      return
+    }
+
+    setBassEqDb(value)
+    invalidateExport()
+  }
+
+  const handleVirtualBassChange = (value: number) => {
+    if (value === virtualBassDb) {
+      return
+    }
+
+    setVirtualBassDb(value)
+    invalidateExport()
+  }
+
+  const handleBassEqLowChange = (value: number) => {
+    setGlobalSettings((current) => {
+      const next = normalizeGlobalSettings({
+        ...current,
+        bassEqLowHz: clampBassEqLowHz(value, current.bassEqHighHz),
+      })
+      return next
+    })
+    invalidateExport()
+  }
+
+  const handleBassEqHighChange = (value: number) => {
+    setGlobalSettings((current) => {
+      const next = normalizeGlobalSettings({
+        ...current,
+        bassEqHighHz: clampBassEqHighHz(value, current.bassEqLowHz),
+      })
+      return next
+    })
+    invalidateExport()
+  }
+
+  const handleVirtualBassCutoffChange = (value: number) => {
+    setGlobalSettings((current) => ({
+      ...current,
+      virtualBassCutoffHz: clampVirtualBassCutoffHz(value),
+    }))
+    invalidateExport()
+  }
+
+  const handleResetGlobalSettings = () => {
+    setGlobalSettings(getDefaultGlobalSettings())
+    invalidateExport()
   }
 
   const handleFileSelection = async (file: File) => {
@@ -123,7 +227,6 @@ export function useAudioLiftWorkflow() {
       resetForNewSelection()
       setSelectedFile(file)
       replaceSelectedFileUrl(localUrl)
-      setGainDb(DEFAULT_GAIN_DB)
     })
 
     const basicIssue = validateSelectedFile(file)
@@ -206,11 +309,19 @@ export function useAudioLiftWorkflow() {
     try {
       const result = await browserMediaEngine.exportAdjustedFile(
         selectedFile,
-        derivedAnalysis.gainDb,
+        {
+          gainDb: derivedAnalysis.gainDb,
+          bassEqDb,
+          bassEqLowHz,
+          bassEqHighHz,
+          virtualBassDb,
+          virtualBassCutoffHz,
+        },
         () => {},
       )
 
       const exportUrl = URL.createObjectURL(result.blob)
+      const warnings = getRenderedMasterWarnings(result.outputAnalysis)
 
       replaceExportAsset({
         name: result.name,
@@ -220,6 +331,11 @@ export function useAudioLiftWorkflow() {
           name: result.name,
           size: result.blob.size,
         }),
+        appliedGainDb: gainDb,
+        appliedBassEqDb: bassEqDb,
+        appliedVirtualBassDb: virtualBassDb,
+        outputAnalysis: result.outputAnalysis,
+        warnings,
       })
       setPhase('ready')
       triggerFileDownload(exportUrl, result.name)
@@ -240,6 +356,7 @@ export function useAudioLiftWorkflow() {
     if (mode === 'adjusted' && !selectedFileUrl) {
       return
     }
+
     setPreviewMode(mode)
   }
 
@@ -253,6 +370,10 @@ export function useAudioLiftWorkflow() {
     setDuration(Number.isFinite(element.duration) ? element.duration : 0)
     livePreview.attach(element)
     livePreview.setGainDb(gainDb)
+    livePreview.setBassEqDb(bassEqDb)
+    livePreview.setBassEqRange(bassEqLowHz, bassEqHighHz)
+    livePreview.setVirtualBassDb(virtualBassDb)
+    livePreview.setVirtualBassCutoffHz(virtualBassCutoffHz)
     livePreview.setMode(previewMode)
   }
 
@@ -310,32 +431,43 @@ export function useAudioLiftWorkflow() {
   return {
     activeVideoSrc,
     baseAnalysis,
+    bassEqDb,
+    bassEqHighHz,
+    bassEqLowHz,
     blockingIssue,
     canAdjustVolume,
+    currentTime,
     derivedAnalysis,
+    duration,
     exportAsset,
     feedbackMessages,
     gainDb,
+    handleBassEqChange,
+    handleBassEqHighChange,
+    handleBassEqLowChange,
     handleExport,
     handleFileSelection,
-    handlePlayPause,
     handleGainChange,
+    handlePlayPause,
     handlePreviewModeChange,
+    handleResetGlobalSettings,
     handleSeekChange,
     handleVideoEnded,
     handleVideoLoadedMetadata,
     handleVideoPause,
     handleVideoPlay,
     handleVideoTimeUpdate,
-    currentTime,
-    mediaSummary,
-    duration,
+    handleVirtualBassChange,
+    handleVirtualBassCutoffChange,
     isPlaying,
+    mediaSummary,
     phase,
     playbackSupport,
     previewMode,
     selectedFile,
     videoRef,
+    virtualBassCutoffHz,
+    virtualBassDb,
   }
 }
 
@@ -355,4 +487,34 @@ function revokeObjectUrl(url: string | null) {
   }
 
   URL.revokeObjectURL(url)
+}
+
+function loadGlobalSettings() {
+  if (typeof window === 'undefined') {
+    return getDefaultGlobalSettings()
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY)
+
+    if (!raw) {
+      return getDefaultGlobalSettings()
+    }
+
+    return normalizeGlobalSettings(JSON.parse(raw) as Partial<GlobalSettings>)
+  } catch {
+    return getDefaultGlobalSettings()
+  }
+}
+
+function persistGlobalSettings(settings: GlobalSettings) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    // Ignore storage failures and keep runtime state alive.
+  }
 }

@@ -26,6 +26,13 @@ export function GainControlPanel({
   const [isWarningsOpen, setIsWarningsOpen] = useState(false)
   const warningsRef = useRef<HTMLDivElement | null>(null)
   const hasWarnings = canAdjustVolume && feedbackMessages.length > 0
+  const exportStatusLabel = derivedAnalysis
+    ? derivedAnalysis.exceedsTruePeakHeadroom
+      ? 'True Peak Over Target'
+      : derivedAnalysis.limiterLikelyRequired
+        ? 'Limiter Activity Likely'
+        : 'Headroom OK'
+    : '---'
 
   useEffect(() => {
     if (!hasWarnings) {
@@ -111,11 +118,11 @@ export function GainControlPanel({
             <div
               className="absolute left-0 right-0 top-8 z-30 rounded-sm border border-ozone-warning/20 bg-[#171117]/98 p-3 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.8)] backdrop-blur-[2px]"
               role="dialog"
-              aria-label="Gain warnings"
+              aria-label="Signal warnings"
             >
               <div className="mb-2 flex items-center justify-between gap-3 border-b border-ozone-warning/12 pb-2">
                 <strong className="text-[0.62rem] text-technical text-ozone-warning">
-                  Signal Warnings
+                  Signal Analysis
                 </strong>
                 <span className="text-[0.6rem] font-mono text-ozone-warning/75">
                   {feedbackMessages.length}
@@ -156,12 +163,14 @@ export function GainControlPanel({
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[0.55rem] text-technical text-ozone-text-muted">Export</span>
+                  <span className="text-[0.55rem] text-technical text-ozone-text-muted">Headroom</span>
                   <span className={cn(
                     "text-sm font-mono",
-                    derivedAnalysis.exportWillClip ? "text-ozone-warning" : "text-ozone-safe"
+                    derivedAnalysis.exceedsTruePeakHeadroom
+                      ? "text-ozone-warning"
+                      : "text-ozone-safe"
                   )}>
-                    {derivedAnalysis.exportWillClip ? 'Will Clip' : 'Clear'}
+                    {exportStatusLabel}
                   </span>
                 </div>
               </div>

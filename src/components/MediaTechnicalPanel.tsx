@@ -42,7 +42,7 @@ export function MediaTechnicalPanel({
 
   const metrics = baseAnalysis && derivedAnalysis ? [
     { label: 'Integrated LUFS', value: formatLufs(baseAnalysis.integratedLufs) },
-    { label: 'Measured Peak', value: formatTruePeak(baseAnalysis.truePeakDbtp) },
+    { label: 'Measured True Peak', value: formatTruePeak(baseAnalysis.truePeakDbtp) },
     { label: 'Dynamic Range', value: derivedAnalysis.marginLabel },
   ] : []
   return (

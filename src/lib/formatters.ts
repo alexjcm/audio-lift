@@ -34,6 +34,10 @@ export function formatDb(value: number) {
   return `${sign}${value.toFixed(1)} dB`
 }
 
+export function formatHz(value: number) {
+  return `${Math.round(value)} Hz`
+}
+
 export function formatLufs(value: number) {
   return `${value.toFixed(1)} LUFS`
 }

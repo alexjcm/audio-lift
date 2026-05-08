@@ -1,9 +1,12 @@
 import {
+  BASS_EQ_MAX_DB,
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
   SUPPORTED_EXTENSIONS,
   SUPPORTED_VIDEO_CODECS,
+  VIRTUAL_BASS_MAX_DB,
 } from './constants'
+import { TRUE_PEAK_TARGET_DBTP } from './virtualBass'
 import type {
   AudioAnalysis,
   AudioState,
@@ -111,15 +114,24 @@ export function getBlockingIssue(summary: MediaSummary): ValidationIssue | null 
 export function buildDerivedAnalysis(
   analysis: AudioAnalysis,
   gainDb: number,
+  bassEqDb: number,
+  virtualBassDb: number,
 ): DerivedAnalysis {
-  const projectedTruePeakDbtp = analysis.truePeakDbtp + gainDb
-  const exportWillClip = projectedTruePeakDbtp >= 0
+  const bassEqContributionDb = (bassEqDb / BASS_EQ_MAX_DB) * 4
+  const virtualBassContributionDb = (virtualBassDb / VIRTUAL_BASS_MAX_DB) * 3
+  const projectedTruePeakDbtp =
+    analysis.truePeakDbtp + gainDb + bassEqContributionDb + virtualBassContributionDb
+  const exceedsTruePeakHeadroom = projectedTruePeakDbtp > TRUE_PEAK_TARGET_DBTP
+  const limiterLikelyRequired = gainDb > 0 || bassEqDb > 0 || virtualBassDb > 0
   const audioState = classifyAudioState(analysis.integratedLufs)
 
   return {
     gainDb,
+    bassEqDb,
+    virtualBassDb,
     projectedTruePeakDbtp,
-    exportWillClip,
+    exceedsTruePeakHeadroom,
+    limiterLikelyRequired,
     audioState,
     audioStateLabel: getAudioStateLabel(audioState),
     marginLabel: getMarginLabel(analysis.truePeakDbtp),
@@ -136,15 +148,45 @@ export function getFeedbackMessages(
 
   const messages: string[] = []
 
-  if (derived.exportWillClip) {
-    messages.push(
-      derived.gainDb === 0
-        ? 'The current export will clip because the source already exceeds 0 dBTP.'
-        : 'The current export will clip with the selected gain setting.',
-    )
+  if (derived.exceedsTruePeakHeadroom) {
+    messages.push('Projected true peak exceeds the -1 dBTP safety target.')
+  }
+
+  if (derived.gainDb > 0) {
+    messages.push('Positive gain reduces available limiter headroom.')
+  }
+
+  if (derived.bassEqDb > 0) {
+    messages.push('Bass EQ adds low-band energy and is contributing to projected headroom loss.')
+  }
+
+  if (derived.virtualBassDb > 0) {
+    messages.push('Virtual Bass adds harmonic energy and may trigger limiter activity.')
+  }
+
+  if (
+    analysis.truePeakDbtp > TRUE_PEAK_TARGET_DBTP &&
+    !messages.includes('Projected true peak exceeds the -1 dBTP safety target.')
+  ) {
+    messages.push('The source master already sits above the -1 dBTP safety target.')
   }
 
   return messages
+}
+
+export function getRenderedMasterWarnings(analysis: AudioAnalysis | null) {
+  if (!analysis) {
+    return []
+  }
+
+  if (analysis.truePeakDbtp <= TRUE_PEAK_TARGET_DBTP) {
+    return []
+  }
+
+  return [
+    'The rendered master exceeds the -1 dBTP safety target.',
+    'Export remains available, but downstream codec conversion may increase overload risk.',
+  ]
 }
 
 export function getPreviewMimeType(file: File | null) {

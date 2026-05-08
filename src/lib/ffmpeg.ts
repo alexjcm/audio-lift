@@ -1,5 +1,16 @@
 import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg'
+import {
+  VIRTUAL_BASS_DRIVE,
+  VIRTUAL_BASS_HARMONIC_HP_HZ,
+  VIRTUAL_BASS_HARMONIC_LP_HZ,
+} from './constants'
 import { getFileExtension, getPreviewMimeType } from './validation'
+import {
+  TRUE_PEAK_LIMIT_LINEAR,
+  deriveBassEqCenterHz,
+  deriveBassEqQ,
+  mapVirtualBassDbToMixGain,
+} from './virtualBass'
 import type { AudioAnalysis, ProbeResult, ProbeStream } from '../types'
 
 const LOAD_TIMEOUT_MS = 20_000
@@ -20,6 +31,17 @@ type BrowserMetadata = {
   durationSeconds: number | null
   width: number | null
   height: number | null
+}
+type ExportOptions = {
+  gainDb: number
+  bassEqDb: number
+  bassEqLowHz: number
+  bassEqHighHz: number
+  virtualBassDb: number
+  virtualBassCutoffHz: number
+}
+type ExportedAsset = GeneratedBlob & {
+  outputAnalysis: AudioAnalysis | null
 }
 
 class BrowserMediaEngine {
@@ -103,71 +125,23 @@ class BrowserMediaEngine {
     await this.load()
 
     return this.withMountedInput(file, async (inputPath) => {
-      const jsonLines: string[] = []
-      let collecting = false
-
-      const handleLog = ({ message }: { message: string }) => {
-        const cleaned = message.replace(/^\[[^\]]+\]\s*/, '').trim()
-
-        if (!collecting && cleaned.startsWith('{')) {
-          collecting = true
-        }
-
-        if (collecting) {
-          jsonLines.push(cleaned)
-          if (cleaned.endsWith('}')) {
-            collecting = false
-          }
-        }
-      }
-
-      this.ffmpeg.on('log', handleLog)
-
-      try {
-        const exitCode = await this.ffmpeg.exec([
-          '-i',
-          inputPath,
-          '-map',
-          '0:a:0',
-          '-af',
-          'loudnorm=I=-16:TP=-1.0:LRA=11:print_format=json',
-          '-f',
-          'null',
-          '-',
-        ])
-
-        if (exitCode !== 0) {
-          throw new Error('Could not analyze the audio with exact precision.')
-        }
-      } finally {
-        this.ffmpeg.off('log', handleLog)
-      }
-
-      const payload = JSON.parse(jsonLines.join('\n')) as {
-        input_i: string
-        input_tp: string
-        input_lra: string
-        input_thresh: string
-      }
-
-      return {
-        integratedLufs: Number.parseFloat(payload.input_i),
-        truePeakDbtp: Number.parseFloat(payload.input_tp),
-        loudnessRange: Number.parseFloat(payload.input_lra),
-        threshold: Number.parseFloat(payload.input_thresh),
-      } satisfies AudioAnalysis
+      return this.analyzeMountedInput(inputPath)
     })
   }
 
-  async exportAdjustedFile(file: File, gainDb: number, onProgress?: ProgressHandler) {
-    return this.renderAdjustedAsset(file, gainDb, onProgress)
+  async exportAdjustedFile(
+    file: File,
+    options: ExportOptions,
+    onProgress?: ProgressHandler,
+  ) {
+    return this.renderAdjustedAsset(file, options, onProgress)
   }
 
   private async renderAdjustedAsset(
     file: File,
-    gainDb: number,
+    options: ExportOptions,
     onProgress?: ProgressHandler,
-  ) {
+  ): Promise<ExportedAsset> {
     await this.load()
 
     const extension = getFileExtension(file.name) || 'mp4'
@@ -189,6 +163,7 @@ class BrowserMediaEngine {
         videoStream?.codec_tag_string === 'hev1' ||
         videoStream?.codec_tag_string === 'hvc1'
       const audioBitrateArgs = getAudioBitrateArgs(audioStream)
+      const audioSampleRate = getAudioSampleRate(audioStream)
 
       const handleProgress = ({ progress }: { progress: number }) => {
         onProgress?.(progress)
@@ -197,29 +172,15 @@ class BrowserMediaEngine {
       this.ffmpeg.on('progress', handleProgress)
 
       try {
-        const args = [
-          '-i',
+        const args = buildExportArgs({
           inputPath,
-          '-map',
-          '0:v:0',
-          '-map',
-          '0:a:0',
-          '-map_metadata',
-          '0',
-          '-map_chapters',
-          '0',
-          '-c:v',
-          'copy',
-          ...(shouldForceHvc1 ? ['-tag:v', 'hvc1'] : []),
-          '-af',
-          `volume=${gainDb.toFixed(1)}dB`,
-          '-c:a',
-          'aac',
-          ...audioBitrateArgs,
-          '-movflags',
-          '+faststart',
           outputPath,
-        ]
+          shouldForceHvc1,
+          audioBitrateArgs,
+          audioSampleRate,
+          audioChannels: audioStream?.channels ?? 2,
+          ...options,
+        })
 
         const exitCode = await this.ffmpeg.exec(args)
 
@@ -229,6 +190,7 @@ class BrowserMediaEngine {
           )
         }
 
+        const outputAnalysis = await this.analyzeMountedInput(outputPath)
         const outputProbe = await this.probeMountedInput(outputPath)
         const outputVideoStream = outputProbe.streams.find(
           (stream) => stream.codec_type === 'video',
@@ -256,7 +218,8 @@ class BrowserMediaEngine {
           blob: new Blob([arrayBuffer], { type: getPreviewMimeType(file) }),
           name: outputName,
           probe: outputProbe,
-        } satisfies GeneratedBlob
+          outputAnalysis,
+        } satisfies ExportedAsset
       } finally {
         this.ffmpeg.off('progress', handleProgress)
         onProgress?.(0)
@@ -310,6 +273,63 @@ class BrowserMediaEngine {
 
   private async probeMountedInput(inputPath: string) {
     return this.probeFromFfmpegLogs(inputPath)
+  }
+
+  private async analyzeMountedInput(inputPath: string) {
+    const jsonLines: string[] = []
+    let collecting = false
+
+    const handleLog = ({ message }: { message: string }) => {
+      const cleaned = message.replace(/^\[[^\]]+\]\s*/, '').trim()
+
+      if (!collecting && cleaned.startsWith('{')) {
+        collecting = true
+      }
+
+      if (collecting) {
+        jsonLines.push(cleaned)
+
+        if (cleaned.endsWith('}')) {
+          collecting = false
+        }
+      }
+    }
+
+    this.ffmpeg.on('log', handleLog)
+
+    try {
+      const exitCode = await this.ffmpeg.exec([
+        '-i',
+        inputPath,
+        '-map',
+        '0:a:0',
+        '-af',
+        'loudnorm=I=-16:TP=-1.0:LRA=11:print_format=json',
+        '-f',
+        'null',
+        '-',
+      ])
+
+      if (exitCode !== 0) {
+        throw new Error('Could not analyze the audio with exact precision.')
+      }
+    } finally {
+      this.ffmpeg.off('log', handleLog)
+    }
+
+    const payload = JSON.parse(jsonLines.join('\n')) as {
+      input_i: string
+      input_tp: string
+      input_lra: string
+      input_thresh: string
+    }
+
+    return {
+      integratedLufs: Number.parseFloat(payload.input_i),
+      truePeakDbtp: Number.parseFloat(payload.input_tp),
+      loudnessRange: Number.parseFloat(payload.input_lra),
+      threshold: Number.parseFloat(payload.input_thresh),
+    } satisfies AudioAnalysis
   }
 
   private async probeFromFfmpegLogs(inputPath: string) {
@@ -382,6 +402,103 @@ function getAudioBitrateArgs(stream: ProbeStream | undefined) {
   }
 
   return ['-b:a', String(parsed)]
+}
+
+function getAudioSampleRate(stream: ProbeStream | undefined) {
+  const parsed = Number.parseInt(stream?.sample_rate ?? '', 10)
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 48_000
+  }
+
+  return parsed
+}
+
+function buildExportArgs(
+  options: ExportOptions & {
+    inputPath: string
+    outputPath: string
+    shouldForceHvc1: boolean
+    audioBitrateArgs: string[]
+    audioSampleRate: number
+    audioChannels: number
+  },
+) {
+  const baseArgs = [
+    '-i',
+    options.inputPath,
+    '-map',
+    '0:v:0',
+    '-map_metadata',
+    '0',
+    '-map_chapters',
+    '0',
+    '-c:v',
+    'copy',
+    ...(options.shouldForceHvc1 ? ['-tag:v', 'hvc1'] : []),
+  ]
+
+  const centerHz = deriveBassEqCenterHz(options.bassEqLowHz, options.bassEqHighHz)
+  const q = deriveBassEqQ(options.bassEqLowHz, options.bassEqHighHz)
+  const limiterChain = [
+    `equalizer=f=${centerHz.toFixed(2)}:width_type=q:width=${q.toFixed(4)}:g=${options.bassEqDb.toFixed(1)}`,
+    `volume=${options.gainDb.toFixed(1)}dB`,
+    'aresample=192000',
+    `alimiter=limit=${TRUE_PEAK_LIMIT_LINEAR.toFixed(6)}:level=false`,
+    `aresample=${options.audioSampleRate}`,
+  ]
+
+  if (options.virtualBassDb <= 0) {
+    return [
+      ...baseArgs,
+      '-map',
+      '0:a:0',
+      '-af',
+      limiterChain.join(','),
+      '-c:a',
+      'aac',
+      ...options.audioBitrateArgs,
+      '-movflags',
+      '+faststart',
+      options.outputPath,
+    ]
+  }
+
+  const mixGain = mapVirtualBassDbToMixGain(options.virtualBassDb)
+  const monoFold = getMonoFoldFilter(options.audioChannels)
+  const harmonicPan = options.audioChannels > 1 ? ',pan=stereo|c0=c0|c1=c0' : ''
+  const harmonicHighpassHz = Math.max(
+    options.virtualBassCutoffHz,
+    VIRTUAL_BASS_HARMONIC_HP_HZ,
+  )
+  const filterComplex = [
+    `[0:a:0]asplit=2[dry][vb]`,
+    `[vb]lowpass=f=${options.virtualBassCutoffHz}${monoFold},asoftclip=type=tanh:param=${VIRTUAL_BASS_DRIVE}:oversample=4,highpass=f=${harmonicHighpassHz},lowpass=f=${VIRTUAL_BASS_HARMONIC_LP_HZ},volume=${mixGain.toFixed(4)}${harmonicPan}[vbfx]`,
+    '[dry][vbfx]amix=inputs=2:normalize=0[mixed]',
+    `[mixed]${limiterChain.join(',')}[aout]`,
+  ].join(';')
+
+  return [
+    ...baseArgs,
+    '-filter_complex',
+    filterComplex,
+    '-map',
+    '[aout]',
+    '-c:a',
+    'aac',
+    ...options.audioBitrateArgs,
+    '-movflags',
+    '+faststart',
+    options.outputPath,
+  ]
+}
+
+function getMonoFoldFilter(channels: number) {
+  if (channels <= 1) {
+    return ',pan=mono|c0=c0'
+  }
+
+  return ',pan=mono|c0=.5*c0+.5*c1'
 }
 
 async function createBlobUrl(
