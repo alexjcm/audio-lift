@@ -7,10 +7,26 @@ export function formatBytes(value: number) {
   const megabytes = value / 1024 ** 2
 
   if (megabytes >= 1) {
+    if (megabytes >= 100) {
+      return `${Math.round(megabytes)} MB`
+    }
+
+    if (megabytes >= 10) {
+      return `${megabytes.toFixed(1)} MB`
+    }
+
     return `${megabytes.toFixed(2)} MB`
   }
 
   if (kilobytes >= 1) {
+    if (kilobytes >= 100) {
+      return `${Math.round(kilobytes)} KB`
+    }
+
+    if (kilobytes >= 10) {
+      return `${kilobytes.toFixed(1)} KB`
+    }
+
     return `${kilobytes.toFixed(2)} KB`
   }
 

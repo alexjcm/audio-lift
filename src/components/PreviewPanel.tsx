@@ -108,7 +108,7 @@ export function PreviewPanel({
 
   const handleImportInputClick = (event: MouseEvent<HTMLInputElement>) => {
     event.currentTarget.value = ''
-    setImportStatusMessage('Waiting for video selection...')
+    setImportStatusMessage('Waiting for iPhone to return the selected video...')
   }
 
   const handleLoadedMetadata = () => {
@@ -139,6 +139,12 @@ export function PreviewPanel({
     const element = videoRef.current
     setCurrentTime(element ? element.duration : duration)
     onEnded()
+
+    if (previewMode === 'adjusted' && element) {
+      element.currentTime = 0
+      setCurrentTime(0)
+      void onPlayPause()
+    }
   }
 
   const scrubberMax = duration > 0 ? duration : 0
@@ -148,15 +154,15 @@ export function PreviewPanel({
     importWorkflowStatusMessage ?? importStatusMessage
 
   const importControl = (
-    <div className="flex items-center justify-end gap-3">
+    <div className="flex items-center justify-end gap-2 max-[720px]:gap-1.5">
       {visibleImportStatusMessage ? (
-        <p className="max-w-[14rem] text-right text-[0.58rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/82">
+        <p className="max-w-[13rem] text-right text-[0.54rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/82 max-[720px]:max-w-[8.5rem] max-[720px]:text-[0.48rem]">
           {visibleImportStatusMessage}
         </p>
       ) : null}
 
       <div className="relative shrink-0">
-        <div className="btn-technical inline-flex min-h-11 items-center justify-center rounded-[2px] border border-ozone-border px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
+        <div className="btn-technical inline-flex min-h-10 items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.58rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent max-[720px]:min-h-8 max-[720px]:px-2 max-[720px]:py-1 max-[720px]:text-[0.54rem] md:min-h-11 md:px-3 md:py-2 md:text-[0.62rem]">
           {isImporting ? 'Loading Video...' : 'Import Media'}
         </div>
         <input
@@ -177,20 +183,20 @@ export function PreviewPanel({
   )
 
   return (
-    <aside className="grid gap-6">
+    <aside className="grid gap-2.5 md:gap-6">
       <section
         className={cn(
           panelClass,
-          'relative overflow-hidden pt-0 pb-0 max-[720px]:pt-0 max-[720px]:pb-0',
+          'relative overflow-hidden pt-0 pb-0',
         )}
       >
         {/* Video / Visualizer Shell */}
         <div
           className={cn(
-            'relative grid min-h-[220px] place-items-center overflow-hidden rounded-sm border border-ozone-border-bright bg-black shadow-inner grid-technical max-[720px]:h-[220px]',
+            'relative grid min-h-[220px] place-items-center overflow-hidden rounded-sm border border-ozone-border-bright bg-black shadow-inner grid-technical max-[720px]:min-h-[184px] max-[720px]:h-[196px]',
             activeVideoSrc
-              ? 'px-3 py-3'
-              : 'min-h-[180px]',
+              ? 'px-3 py-3 max-[720px]:px-1.5 max-[720px]:py-1'
+              : 'min-h-[180px] max-[720px]:min-h-[160px]',
           )}
         >
           {activeVideoSrc ? (
@@ -198,7 +204,7 @@ export function PreviewPanel({
               <video
                 key={activeVideoSrc}
                 ref={videoRef}
-                className="block h-auto w-auto max-h-[min(42svh,320px)] max-w-full rounded-[2px] bg-black object-contain max-[720px]:max-h-[min(30svh,220px)]"
+                className="block h-auto w-auto max-h-[min(42svh,320px)] max-w-full rounded-[2px] bg-black object-contain max-[720px]:max-h-[min(24svh,184px)]"
                 src={activeVideoSrc}
                 disablePictureInPicture
                 disableRemotePlayback
@@ -222,20 +228,20 @@ export function PreviewPanel({
           )}
 
           {activeVideoSrc ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
-              <div className="pointer-events-auto flex w-full max-w-[32rem] items-center gap-3 rounded-full border border-white/12 bg-black/58 px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md">
+            <div className="pointer-events-none absolute inset-x-0 bottom-2.5 z-20 flex justify-center px-3 max-[720px]:bottom-1 max-[720px]:px-1.5">
+              <div className="pointer-events-auto flex w-full max-w-[32rem] items-center gap-2 rounded-full border border-white/12 bg-black/58 px-2.5 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md max-[720px]:gap-0.5 max-[720px]:px-0.5 max-[720px]:py-0 md:gap-3 md:px-3 md:py-1.5">
                 <button
                   type="button"
                   onClick={() => {
                     void onPlayPause()
                   }}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 max-[720px]:h-[42px] max-[720px]:w-[42px] md:h-11 md:w-11"
                   aria-label={isPlaying ? 'Pause video' : 'Play video'}
                 >
                   {isPlaying ? (
                     <svg
                       viewBox="0 0 24 24"
-                      className="h-5 w-5"
+                      className="h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]"
                       fill="currentColor"
                       aria-hidden="true"
                     >
@@ -244,7 +250,7 @@ export function PreviewPanel({
                   ) : (
                     <svg
                       viewBox="0 0 24 24"
-                      className="ml-0.5 h-5 w-5"
+                      className="ml-0.5 h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]"
                       fill="currentColor"
                       aria-hidden="true"
                     >
@@ -265,11 +271,11 @@ export function PreviewPanel({
                     }
                     disabled={scrubberMax <= 0}
                     aria-label="Seek video"
-                    className="block h-3 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="block h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40 max-[720px]:h-2 md:h-3"
                   />
                 </div>
 
-                <div className="shrink-0 text-right font-mono text-[0.54rem] text-white/84">
+                <div className="hidden shrink-0 text-right font-mono text-[0.54rem] text-white/84 md:block">
                   {formatDuration(currentTime)} / {formatDuration(duration)}
                 </div>
               </div>
@@ -277,22 +283,22 @@ export function PreviewPanel({
           ) : null}
           
           {/* Decorative Corner Elements */}
-          <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-ozone-accent/30 pointer-events-none"></div>
-          <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-ozone-accent/30 pointer-events-none"></div>
-          <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-ozone-accent/30 pointer-events-none"></div>
-          <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-ozone-accent/30 pointer-events-none"></div>
+          <div className="absolute top-1 left-1 h-2 w-2 border-t border-l border-ozone-accent/30 pointer-events-none"></div>
+          <div className="absolute top-1 right-1 h-2 w-2 border-t border-r border-ozone-accent/30 pointer-events-none"></div>
+          <div className="absolute bottom-1 left-1 h-2 w-2 border-b border-l border-ozone-accent/30 pointer-events-none"></div>
+          <div className="absolute right-1 bottom-1 h-2 w-2 border-b border-r border-ozone-accent/30 pointer-events-none"></div>
         </div>
 
         {activeVideoSrc ? (
           <>
-            <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
-              <div className="flex items-center justify-between gap-3">
+            <div className="mt-0 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5 max-[720px]:py-0.5">
+              <div className="flex items-center justify-between gap-2">
                 <span
-                  className="truncate font-mono text-[0.66rem] text-ozone-text-muted"
+                  className="truncate font-mono text-[0.62rem] text-ozone-text-muted max-[720px]:text-[0.52rem]"
                   title={fileName ?? undefined}
                 >
                   <span className="text-ozone-accent/90">
-                    {formatFileNameMiddle(fileName ?? '', 12, 10)}
+                    {formatFileNameMiddle(fileName ?? '', 7, 6)}
                   </span>
                 </span>
 
@@ -301,7 +307,7 @@ export function PreviewPanel({
             </div>
           </>
         ) : (
-          <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
+          <div className="mt-0 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5 max-[720px]:py-0.5">
             <div className="flex items-center justify-end">
               {importControl}
             </div>
@@ -309,15 +315,15 @@ export function PreviewPanel({
         )}
 
         {/* Mode Selector */}
-        <div className="mt-2">
+        <div className="mt-1 max-[720px]:mt-0.5">
           <div
-            className="grid grid-cols-2 gap-1 p-1 bg-black/40 border border-ozone-border rounded-sm"
+            className="grid grid-cols-2 gap-1 border border-ozone-border bg-black/40 p-1 rounded-sm"
             role="tablist"
           >
             <button
               type="button"
               className={cn(
-                "btn-technical flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-[0.7rem] font-bold uppercase transition-all duration-200",
+                "btn-technical flex min-h-10 items-center justify-center gap-1.5 px-3 py-1.5 text-[0.62rem] font-bold uppercase transition-all duration-200 md:min-h-11 md:gap-2 md:px-4 md:py-2 md:text-[0.7rem]",
                 previewMode === 'original' 
                   ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
                   : "text-ozone-text-muted hover:text-ozone-text"
@@ -330,7 +336,7 @@ export function PreviewPanel({
             <button
               type="button"
               className={cn(
-                "btn-technical flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-[0.7rem] font-bold uppercase transition-all duration-200",
+                "btn-technical flex min-h-10 items-center justify-center gap-1.5 px-3 py-1.5 text-[0.62rem] font-bold uppercase transition-all duration-200 md:min-h-11 md:gap-2 md:px-4 md:py-2 md:text-[0.7rem]",
                 previewMode === 'adjusted' 
                   ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
                   : "text-ozone-text-muted hover:text-ozone-text",

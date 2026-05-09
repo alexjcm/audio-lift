@@ -35,12 +35,12 @@ export function BassControlPanel({
       <div className="grid gap-2.5 md:gap-3">
         <ControlRow
           canAdjust={canAdjust}
-          label="Bass EQ · Low-End EQ"
+          desktopLabel="Bass EQ · Low-End EQ"
+          mobileLabel="Bass EQ"
           showActiveIndicator
           isActive={bassEqDb > 0}
           value={bassEqDb}
           onChange={onBassEqChange}
-          onReset={() => onBassEqChange(0)}
           min={BASS_EQ_MIN_DB}
           max={BASS_EQ_MAX_DB}
           step={BASS_EQ_STEP_DB}
@@ -48,12 +48,12 @@ export function BassControlPanel({
 
         <ControlRow
           canAdjust={canAdjust}
-          label="Virtual Bass · Bass Enhancement"
+          desktopLabel="Virtual Bass · Bass Enhancement"
+          mobileLabel="Virtual Bass"
           showActiveIndicator
           isActive={virtualBassDb > 0}
           value={virtualBassDb}
           onChange={onVirtualBassChange}
-          onReset={() => onVirtualBassChange(0)}
           min={VIRTUAL_BASS_MIN_DB}
           max={VIRTUAL_BASS_MAX_DB}
           step={VIRTUAL_BASS_STEP_DB}
@@ -74,10 +74,10 @@ export function BassControlPanel({
 type ControlRowProps = {
   canAdjust: boolean
   isActive?: boolean
-  label: string
+  desktopLabel: string
+  mobileLabel: string
   value: number
   onChange: (value: number) => void
-  onReset: () => void
   showActiveIndicator?: boolean
   min: number
   max: number
@@ -87,71 +87,63 @@ type ControlRowProps = {
 function ControlRow({
   canAdjust,
   isActive = false,
-  label,
+  desktopLabel,
+  mobileLabel,
   value,
   onChange,
-  onReset,
   showActiveIndicator = false,
   min,
   max,
   step,
 }: ControlRowProps) {
   return (
-    <div className="rounded-sm border border-ozone-border bg-black/35 p-2.5 md:p-3">
-      <div className="mb-2 flex items-start justify-between gap-2 md:mb-3 md:gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[0.62rem] font-bold uppercase tracking-[0.05em] text-ozone-text md:text-[0.68rem] md:tracking-[0.06em]">
-              {label}
-            </p>
-            {showActiveIndicator ? (
-              <span
-                className={cn(
-                  'mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full border transition-all duration-200 md:h-2 md:w-2',
-                  isActive
-                    ? 'border-ozone-accent bg-ozone-accent shadow-[0_0_10px_rgba(0,240,255,0.75)]'
-                    : 'border-ozone-border-bright bg-transparent',
-                )}
-                aria-hidden="true"
-              />
-            ) : null}
-          </div>
+    <div className="rounded-sm border border-ozone-border bg-black/35 p-2.5 max-[720px]:p-2 md:p-3">
+      <div className="mb-1.5 flex items-start justify-between gap-2 md:mb-3 md:gap-3">
+        <div className="min-w-0 flex items-center gap-1.5">
+          <p className="text-[0.58rem] font-bold uppercase tracking-[0.05em] text-ozone-text md:text-[0.68rem] md:tracking-[0.06em]">
+            <span className="md:hidden">{mobileLabel}</span>
+            <span className="hidden md:inline">{desktopLabel}</span>
+          </p>
+          {showActiveIndicator ? (
+            <span
+              className={cn(
+                'mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full border transition-all duration-200 md:h-2 md:w-2',
+                isActive
+                  ? 'border-ozone-accent bg-ozone-accent shadow-[0_0_10px_rgba(0,240,255,0.75)]'
+                  : 'border-ozone-border-bright bg-transparent',
+              )}
+              aria-hidden="true"
+            />
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2">
-          <span className="min-w-[4.4rem] text-right text-[0.76rem] font-mono font-bold text-ozone-accent md:min-w-[5.25rem] md:text-[0.82rem]">
+          <span className="min-w-[4rem] text-right text-[0.72rem] font-mono font-bold text-ozone-accent md:min-w-[5.25rem] md:text-[0.82rem]">
             {formatDb(value)}
           </span>
-          <button
-            type="button"
-            className={cn(
-              'btn-technical min-h-10 rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.48rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 md:min-h-11 md:px-3 md:py-2 md:text-[0.55rem]',
-              'hover:border-ozone-accent/35 hover:text-ozone-accent',
-              !canAdjust && 'cursor-not-allowed opacity-30',
-            )}
-            disabled={!canAdjust}
-            onClick={onReset}
-          >
-            Reset
-          </button>
         </div>
       </div>
 
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={!canAdjust}
-        aria-label={label}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="block h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)] disabled:cursor-not-allowed disabled:opacity-35 md:h-3"
-      />
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-[0.45rem] font-mono text-ozone-text-muted/85 md:text-[0.55rem]">
+          {formatDb(min)}
+        </span>
 
-      <div className="mt-1.5 flex items-center justify-between text-[0.48rem] font-mono text-ozone-text-muted/85 md:mt-2 md:text-[0.55rem]">
-        <span>{formatDb(min)}</span>
-        <span>{formatDb(max)}</span>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={!canAdjust}
+          aria-label={desktopLabel}
+          onChange={(event) => onChange(Number(event.target.value))}
+          className="block h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)] disabled:cursor-not-allowed disabled:opacity-35 md:h-3"
+        />
+
+        <span className="shrink-0 text-[0.45rem] font-mono text-ozone-text-muted/85 md:text-[0.55rem]">
+          {formatDb(max)}
+        </span>
       </div>
     </div>
   )
