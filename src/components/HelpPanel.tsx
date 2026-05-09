@@ -33,6 +33,9 @@ export function HelpPanel() {
           <p className="text-[0.7rem] leading-relaxed text-ozone-text-muted border-l border-ozone-border pl-3">
             Analyze with EBU R128 loudness measurement, adjust gain and low-end processing in dB, and export a new file while preserving the original video whenever the pipeline allows it.
           </p>
+          <p className="text-[0.7rem] leading-relaxed text-ozone-text-muted border-l border-ozone-border pl-3">
+            The local export engine needs one successful online preparation before it can be reused offline from cache.
+          </p>
 
           <div className="mt-2 flex flex-col gap-2 border-l border-ozone-border pl-3 pt-2">
             <span className="text-[0.65rem] font-bold text-ozone-text uppercase tracking-wider">

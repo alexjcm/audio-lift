@@ -30,7 +30,9 @@ export function GainControlPanel({
     ? derivedAnalysis.exceedsTruePeakHeadroom
       ? 'True Peak Over Target'
       : derivedAnalysis.limiterLikelyRequired
-        ? 'Limiter Activity Likely'
+        ? 'Limiter Likely'
+        : derivedAnalysis.processingActive
+          ? 'Headroom OK'
         : 'Headroom OK'
     : '---'
 
@@ -79,7 +81,7 @@ export function GainControlPanel({
                     <button
                       type="button"
                       className={cn(
-                        'flex h-7 w-7 items-center justify-center rounded-sm border border-ozone-warning/25 bg-ozone-warning/8 text-ozone-warning transition-all',
+                        'flex h-11 w-11 items-center justify-center rounded-sm border border-ozone-warning/25 bg-ozone-warning/8 text-ozone-warning transition-all',
                         'hover:border-ozone-warning/45 hover:bg-ozone-warning/12',
                         isWarningsOpen && 'border-ozone-warning/45 bg-ozone-warning/12',
                       )}
@@ -165,7 +167,9 @@ export function GainControlPanel({
                 <div className="flex flex-col items-end">
                   <span className="text-[0.55rem] text-technical text-ozone-text-muted">Headroom</span>
                   <span className={cn(
-                    "text-sm font-mono",
+                    derivedAnalysis.exceedsTruePeakHeadroom
+                      ? "text-[0.72rem] font-mono md:text-sm"
+                      : "text-sm font-mono",
                     derivedAnalysis.exceedsTruePeakHeadroom
                       ? "text-ozone-warning"
                       : "text-ozone-safe"
@@ -204,7 +208,7 @@ export function GainControlPanel({
             {/* The Invisible Range Input for Control */}
             <input
               type="range"
-              className="absolute -left-4 h-[208px] w-10 cursor-pointer opacity-0"
+              className="absolute -left-5 h-[208px] w-12 cursor-pointer opacity-0"
               style={{
                 writingMode: 'vertical-lr',
                 direction: 'rtl',
@@ -219,15 +223,15 @@ export function GainControlPanel({
             
             {/* Custom Thumb Visual */}
             <div 
-              className="pointer-events-none absolute -left-3 h-3.5 w-7 rounded-sm border border-ozone-accent bg-white shadow-lg glow-cyan"
+              className="pointer-events-none absolute -left-4 h-4 w-9 rounded-sm border border-ozone-accent bg-white shadow-lg glow-cyan"
               style={{ 
-                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 7px)` 
+                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 8px)` 
               }}
             >
               <div className="mt-[6px] h-[1px] w-full bg-ozone-accent"></div>
             </div>
           </div>
-          <span className="mt-1 text-[0.58rem] text-technical tracking-[0.08em] text-ozone-text-muted/90">Fader</span>
+          <span className="mt-2 text-[0.58rem] text-technical tracking-[0.08em] text-ozone-text-muted/90">Fader</span>
         </div>
       </div>
 

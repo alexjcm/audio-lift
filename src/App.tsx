@@ -2,7 +2,6 @@ import { ActionsPanel } from './components/ActionsPanel'
 import { BassControlPanel } from './components/BassControlPanel'
 import { MediaTechnicalPanel } from './components/MediaTechnicalPanel'
 import { BlockingIssuePanel } from './components/BlockingIssuePanel'
-import { ExportReadyPanel } from './components/ExportReadyPanel'
 import { GainControlPanel } from './components/GainControlPanel'
 import { HelpPanel } from './components/HelpPanel'
 import { PlaybackSupportPanel } from './components/PlaybackSupportPanel'
@@ -15,7 +14,7 @@ function App() {
 
   return (
     <main className="mx-auto w-[min(1280px,100%)] min-h-screen bg-ozone-bg selection:bg-ozone-accent selection:text-ozone-bg">
-      <div className="px-4 pb-4 pt-0 md:p-6 lg:p-8">
+      <div className="mobile-floating-clearance px-4 pt-0 md:p-6 lg:p-8">
         <div className="mb-3 md:mb-6">
           <SettingsPanel
             bassEqHighHz={workflow.bassEqHighHz}
@@ -33,9 +32,8 @@ function App() {
           <div className="grid gap-3 md:gap-6">
             <PreviewPanel
               activeVideoSrc={workflow.activeVideoSrc}
-              currentTime={workflow.currentTime}
-              duration={workflow.duration}
               fileName={workflow.selectedFile?.name ?? null}
+              importWorkflowStatusMessage={workflow.importWorkflowStatusMessage}
               isPlaying={workflow.isPlaying}
               onFileSelection={workflow.handleFileSelection}
               onEnded={workflow.handleVideoEnded}
@@ -45,7 +43,6 @@ function App() {
               onPlayPause={workflow.handlePlayPause}
               onPreviewModeChange={workflow.handlePreviewModeChange}
               onSeekChange={workflow.handleSeekChange}
-              onTimeUpdate={workflow.handleVideoTimeUpdate}
               previewMode={workflow.previewMode}
               videoRef={workflow.videoRef}
             />
@@ -80,8 +77,6 @@ function App() {
 
                 <BassControlPanel
                   bassEqDb={workflow.bassEqDb}
-                  bassEqHighHz={workflow.bassEqHighHz}
-                  bassEqLowHz={workflow.bassEqLowHz}
                   canAdjust={workflow.canAdjustVolume}
                   onBassEqChange={workflow.handleBassEqChange}
                   onVirtualBassChange={workflow.handleVirtualBassChange}
@@ -90,9 +85,11 @@ function App() {
 
                 {workflow.canAdjustVolume ? (
                   <ActionsPanel
+                    engineStatus={workflow.engineStatus}
+                    engineStatusMessage={workflow.engineStatusMessage}
+                    mobileRenderWarning={workflow.mobileRenderWarning}
                     onExport={workflow.handleExport}
                     phase={workflow.phase}
-                    virtualBassActive={workflow.virtualBassDb > 0}
                   />
                 ) : null}
               </div>
@@ -105,12 +102,6 @@ function App() {
                 <p className="text-technical">Load a file to enable controls</p>
               </div>
             )}
-
-            {workflow.exportAsset ? (
-              <ExportReadyPanel
-                exportAsset={workflow.exportAsset}
-              />
-            ) : null}
 
             <HelpPanel />
           </div>

@@ -1,13 +1,19 @@
-import type { ChangeEvent, RefObject } from 'react'
+import {
+  type ChangeEvent,
+  type MouseEvent,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { formatDuration, formatFileNameMiddle } from '../lib/formatters'
 import { cn, panelClass } from '../lib/ui'
 import type { PreviewMode } from '../types'
 
 type PreviewPanelProps = {
   activeVideoSrc: string | null
-  currentTime: number
-  duration: number
   fileName?: string | null
+  importWorkflowStatusMessage: string | null
   isPlaying: boolean
   onFileSelection: (file: File) => Promise<void>
   onEnded: () => void
@@ -17,16 +23,14 @@ type PreviewPanelProps = {
   onPlayPause: () => Promise<void>
   onPreviewModeChange: (mode: PreviewMode) => void
   onSeekChange: (time: number) => void
-  onTimeUpdate: () => void
   previewMode: PreviewMode
   videoRef: RefObject<HTMLVideoElement | null>
 }
 
 export function PreviewPanel({
   activeVideoSrc,
-  currentTime,
-  duration,
   fileName,
+  importWorkflowStatusMessage,
   isPlaying,
   onFileSelection,
   onEnded,
@@ -36,23 +40,141 @@ export function PreviewPanel({
   onPlayPause,
   onPreviewModeChange,
   onSeekChange,
-  onTimeUpdate,
   previewMode,
   videoRef,
 }: PreviewPanelProps) {
-  const handleFileInput = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) {
+  const importInputRef = useRef<HTMLInputElement | null>(null)
+  const [importInputKey, setImportInputKey] = useState(0)
+  const [importStatusMessage, setImportStatusMessage] = useState<string | null>(
+    null,
+  )
+  const [isImporting, setIsImporting] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  useEffect(() => {
+    if (!activeVideoSrc) {
+      setCurrentTime(0)
+      setDuration(0)
+    }
+  }, [activeVideoSrc])
+
+  useEffect(() => {
+    const input = importInputRef.current
+    if (!input) {
       return
     }
 
-    await onFileSelection(file)
-    event.target.value = ''
+    const handleCancel = () => {
+      setIsImporting(false)
+      setImportStatusMessage(
+        'No video was returned by iPhone. Try Import Media again if the picker closed without loading anything.',
+      )
+      setImportInputKey((value) => value + 1)
+    }
+
+    input.addEventListener('cancel', handleCancel)
+
+    return () => {
+      input.removeEventListener('cancel', handleCancel)
+    }
+  }, [importInputKey])
+
+  const handleFileInput = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    input.value = ''
+
+    if (!file) {
+      setIsImporting(false)
+      setImportStatusMessage(
+        'No compatible video was returned by iPhone. Try Import Media again.',
+      )
+      setImportInputKey((value) => value + 1)
+      return
+    }
+
+    setIsImporting(true)
+    setImportStatusMessage('Loading selected video...')
+
+    try {
+      await onFileSelection(file)
+      setImportStatusMessage(null)
+    } finally {
+      setIsImporting(false)
+      setImportInputKey((value) => value + 1)
+    }
+  }
+
+  const handleImportInputClick = (event: MouseEvent<HTMLInputElement>) => {
+    event.currentTarget.value = ''
+    setImportStatusMessage('Waiting for video selection...')
+  }
+
+  const handleLoadedMetadata = () => {
+    const element = videoRef.current
+    if (element) {
+      setCurrentTime(element.currentTime)
+      setDuration(Number.isFinite(element.duration) ? element.duration : 0)
+    }
+
+    onLoadedMetadata()
+  }
+
+  const handleTimeUpdate = () => {
+    const element = videoRef.current
+    if (!element) {
+      return
+    }
+
+    setCurrentTime(element.currentTime)
+  }
+
+  const handleSeekInput = (nextTime: number) => {
+    setCurrentTime(nextTime)
+    onSeekChange(nextTime)
+  }
+
+  const handleVideoEnded = () => {
+    const element = videoRef.current
+    setCurrentTime(element ? element.duration : duration)
+    onEnded()
   }
 
   const scrubberMax = duration > 0 ? duration : 0
   const scrubberValue =
     scrubberMax > 0 ? Math.min(currentTime, scrubberMax) : 0
+  const visibleImportStatusMessage =
+    importWorkflowStatusMessage ?? importStatusMessage
+
+  const importControl = (
+    <div className="flex items-center justify-end gap-3">
+      {visibleImportStatusMessage ? (
+        <p className="max-w-[14rem] text-right text-[0.58rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/82">
+          {visibleImportStatusMessage}
+        </p>
+      ) : null}
+
+      <div className="relative shrink-0">
+        <div className="btn-technical inline-flex min-h-11 items-center justify-center rounded-[2px] border border-ozone-border px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
+          {isImporting ? 'Loading Video...' : 'Import Media'}
+        </div>
+        <input
+          key={importInputKey}
+          ref={importInputRef}
+          type="file"
+          accept="video/*,.mp4,.mov"
+          aria-label="Import media"
+          disabled={isImporting}
+          onClick={handleImportInputClick}
+          onChange={(event) => {
+            void handleFileInput(event)
+          }}
+          className="absolute inset-0 z-10 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        />
+      </div>
+    </div>
+  )
 
   return (
     <aside className="grid gap-6">
@@ -81,11 +203,11 @@ export function PreviewPanel({
                 disablePictureInPicture
                 disableRemotePlayback
                 playsInline
-                onEnded={onEnded}
-                onLoadedMetadata={onLoadedMetadata}
+                onEnded={handleVideoEnded}
+                onLoadedMetadata={handleLoadedMetadata}
                 onPause={onPause}
                 onPlay={onPlay}
-                onTimeUpdate={onTimeUpdate}
+                onTimeUpdate={handleTimeUpdate}
               />
             </div>
           ) : (
@@ -101,13 +223,13 @@ export function PreviewPanel({
 
           {activeVideoSrc ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
-              <div className="pointer-events-auto flex w-full max-w-[32rem] items-center gap-2 rounded-full border border-white/12 bg-black/58 px-3 py-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md">
+              <div className="pointer-events-auto flex w-full max-w-[32rem] items-center gap-3 rounded-full border border-white/12 bg-black/58 px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.34)] backdrop-blur-md">
                 <button
                   type="button"
                   onClick={() => {
                     void onPlayPause()
                   }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                   aria-label={isPlaying ? 'Pause video' : 'Play video'}
                 >
                   {isPlaying ? (
@@ -139,11 +261,11 @@ export function PreviewPanel({
                     step="any"
                     value={scrubberValue}
                     onChange={(event) =>
-                      onSeekChange(Number(event.target.value))
+                      handleSeekInput(Number(event.target.value))
                     }
                     disabled={scrubberMax <= 0}
                     aria-label="Seek video"
-                    className="block h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="block h-3 w-full cursor-pointer appearance-none rounded-full bg-white/28 accent-white disabled:cursor-not-allowed disabled:opacity-40"
                   />
                 </div>
 
@@ -174,30 +296,14 @@ export function PreviewPanel({
                   </span>
                 </span>
 
-                <label className="btn-technical inline-flex shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
-                  <input
-                    type="file"
-                    accept=".mp4,.mov,video/mp4,video/quicktime"
-                    onChange={handleFileInput}
-                    className="pointer-events-none absolute opacity-0"
-                  />
-                  Import Media
-                </label>
+                {importControl}
               </div>
             </div>
           </>
         ) : (
           <div className="mt-2 rounded-sm border border-ozone-border bg-black/35 px-2 py-1.5 max-[720px]:px-1.5">
             <div className="flex items-center justify-end">
-              <label className="btn-technical inline-flex cursor-pointer items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent">
-                <input
-                  type="file"
-                  accept=".mp4,.mov,video/mp4,video/quicktime"
-                  onChange={handleFileInput}
-                  className="pointer-events-none absolute opacity-0"
-                />
-                Import Media
-              </label>
+              {importControl}
             </div>
           </div>
         )}
@@ -211,7 +317,7 @@ export function PreviewPanel({
             <button
               type="button"
               className={cn(
-                "btn-technical flex items-center justify-center gap-2 py-2 px-4 text-[0.7rem] font-bold uppercase transition-all duration-200",
+                "btn-technical flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-[0.7rem] font-bold uppercase transition-all duration-200",
                 previewMode === 'original' 
                   ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
                   : "text-ozone-text-muted hover:text-ozone-text"
@@ -224,7 +330,7 @@ export function PreviewPanel({
             <button
               type="button"
               className={cn(
-                "btn-technical flex items-center justify-center gap-2 py-2 px-4 text-[0.7rem] font-bold uppercase transition-all duration-200",
+                "btn-technical flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-[0.7rem] font-bold uppercase transition-all duration-200",
                 previewMode === 'adjusted' 
                   ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
                   : "text-ozone-text-muted hover:text-ozone-text",

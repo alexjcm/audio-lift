@@ -14,9 +14,14 @@ import type {
   DerivedAnalysis,
   MarginLabel,
   MediaSummary,
+  MobileRenderWarning,
   ProbeResult,
   ValidationIssue,
 } from '../types'
+
+const MOBILE_RENDER_WARNING_SECONDS = 100
+const MOBILE_RENDER_CRITICAL_SECONDS = 150
+const LIMITER_WARNING_THRESHOLD_DBTP = TRUE_PEAK_TARGET_DBTP - 1
 
 export function getFileExtension(fileName: string) {
   const parts = fileName.split('.')
@@ -119,16 +124,21 @@ export function buildDerivedAnalysis(
 ): DerivedAnalysis {
   const bassEqContributionDb = (bassEqDb / BASS_EQ_MAX_DB) * 4
   const virtualBassContributionDb = (virtualBassDb / VIRTUAL_BASS_MAX_DB) * 3
+  const processingActive = gainDb > 0 || bassEqDb > 0 || virtualBassDb > 0
   const projectedTruePeakDbtp =
     analysis.truePeakDbtp + gainDb + bassEqContributionDb + virtualBassContributionDb
   const exceedsTruePeakHeadroom = projectedTruePeakDbtp > TRUE_PEAK_TARGET_DBTP
-  const limiterLikelyRequired = gainDb > 0 || bassEqDb > 0 || virtualBassDb > 0
+  const limiterLikelyRequired =
+    processingActive &&
+    projectedTruePeakDbtp > LIMITER_WARNING_THRESHOLD_DBTP &&
+    !exceedsTruePeakHeadroom
   const audioState = classifyAudioState(analysis.integratedLufs)
 
   return {
     gainDb,
     bassEqDb,
     virtualBassDb,
+    processingActive,
     projectedTruePeakDbtp,
     exceedsTruePeakHeadroom,
     limiterLikelyRequired,
@@ -153,15 +163,27 @@ export function getFeedbackMessages(
   }
 
   if (derived.gainDb > 0) {
-    messages.push('Positive gain reduces available limiter headroom.')
+    messages.push(
+      derived.limiterLikelyRequired || derived.exceedsTruePeakHeadroom
+        ? 'Positive gain is pushing the master close to the -1 dBTP target.'
+        : 'Positive gain is active. Current projected headroom remains within target.',
+    )
   }
 
   if (derived.bassEqDb > 0) {
-    messages.push('Bass EQ adds low-band energy and is contributing to projected headroom loss.')
+    messages.push(
+      derived.limiterLikelyRequired || derived.exceedsTruePeakHeadroom
+        ? 'Bass EQ is reducing available headroom in the low band.'
+        : 'Bass EQ is active and focused on low-band body.',
+    )
   }
 
   if (derived.virtualBassDb > 0) {
-    messages.push('Virtual Bass adds harmonic energy and may trigger limiter activity.')
+    messages.push(
+      derived.limiterLikelyRequired || derived.exceedsTruePeakHeadroom
+        ? 'Virtual Bass may increase limiter activity through harmonic synthesis.'
+        : 'Virtual Bass is active through harmonic synthesis while projected headroom remains within target.',
+    )
   }
 
   if (
@@ -174,19 +196,33 @@ export function getFeedbackMessages(
   return messages
 }
 
-export function getRenderedMasterWarnings(analysis: AudioAnalysis | null) {
-  if (!analysis) {
-    return []
+export function getMobileRenderWarning(
+  summary: MediaSummary | null,
+  shouldWarnForMobile: boolean,
+): MobileRenderWarning | null {
+  if (!summary || !shouldWarnForMobile) {
+    return null
   }
 
-  if (analysis.truePeakDbtp <= TRUE_PEAK_TARGET_DBTP) {
-    return []
+  if (summary.durationSeconds >= MOBILE_RENDER_CRITICAL_SECONDS) {
+    return {
+      level: 'critical',
+      title: 'Long iPhone Render',
+      detail:
+        'This video is long for a mobile export session. iPhone rendering may use significant memory and take longer than usual.',
+    }
   }
 
-  return [
-    'The rendered master exceeds the -1 dBTP safety target.',
-    'Export remains available, but downstream codec conversion may increase overload risk.',
-  ]
+  if (summary.durationSeconds >= MOBILE_RENDER_WARNING_SECONDS) {
+    return {
+      level: 'warning',
+      title: 'Mobile Render Warning',
+      detail:
+        'This video is long enough to make iPhone rendering heavier. Export remains available, but processing may take longer.',
+    }
+  }
+
+  return null
 }
 
 export function getPreviewMimeType(file: File | null) {

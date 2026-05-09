@@ -1,16 +1,24 @@
 import { cn, panelClass } from '../lib/ui'
-import type { ProcessingPhase } from '../types'
+import type {
+  EngineStatus,
+  MobileRenderWarning,
+  ProcessingPhase,
+} from '../types'
 
 type ActionsPanelProps = {
+  engineStatus: EngineStatus
+  engineStatusMessage: string | null
+  mobileRenderWarning: MobileRenderWarning | null
   onExport: () => Promise<void>
   phase: ProcessingPhase
-  virtualBassActive: boolean
 }
 
 export function ActionsPanel({
+  engineStatus,
+  engineStatusMessage,
+  mobileRenderWarning,
   onExport,
   phase,
-  virtualBassActive,
 }: ActionsPanelProps) {
   const isProcessing = phase === 'exporting'
   const isExporting = phase === 'exporting'
@@ -18,11 +26,57 @@ export function ActionsPanel({
   return (
     <section className={cn(panelClass, 'px-3 py-2.5 max-[720px]:px-2.5 max-[720px]:py-2')}>
       <div className="grid grid-cols-1 gap-2.5">
-        {virtualBassActive ? (
-          <div className="rounded-sm border border-ozone-accent/16 bg-ozone-accent/6 px-3 py-2">
-            <span className="text-[0.62rem] font-mono uppercase tracking-[0.08em] text-ozone-accent">
-              Harmonic synthesis active
+        {engineStatusMessage ? (
+          <div
+            className={cn(
+              'rounded-sm border px-3 py-2',
+              engineStatus === 'failed'
+                ? 'border-ozone-warning/20 bg-ozone-warning/8'
+                : 'border-ozone-border-bright bg-black/35',
+            )}
+          >
+            <span
+              className={cn(
+                'text-[0.62rem] font-mono uppercase tracking-[0.08em]',
+                engineStatus === 'failed'
+                  ? 'text-ozone-warning'
+                  : 'text-ozone-text-muted',
+              )}
+            >
+              {engineStatusMessage}
             </span>
+          </div>
+        ) : null}
+
+        {mobileRenderWarning ? (
+          <div
+            className={cn(
+              'rounded-sm border px-3 py-2',
+              mobileRenderWarning.level === 'critical'
+                ? 'border-ozone-warning/24 bg-ozone-warning/10'
+                : 'border-ozone-accent/16 bg-ozone-accent/6',
+            )}
+          >
+            <div
+              className={cn(
+                'text-[0.62rem] font-mono uppercase tracking-[0.08em]',
+                mobileRenderWarning.level === 'critical'
+                  ? 'text-ozone-warning'
+                  : 'text-ozone-accent',
+              )}
+            >
+              {mobileRenderWarning.title}
+            </div>
+            <p
+              className={cn(
+                'mt-1 text-[0.72rem] leading-snug',
+                mobileRenderWarning.level === 'critical'
+                  ? 'text-ozone-warning'
+                  : 'text-ozone-text',
+              )}
+            >
+              {mobileRenderWarning.detail}
+            </p>
           </div>
         ) : null}
 

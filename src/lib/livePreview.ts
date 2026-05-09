@@ -15,6 +15,7 @@ import {
 import type { PreviewMode } from '../types'
 
 const GAIN_SMOOTHING_SECONDS = 0.02
+const VIRTUAL_BASS_DISCONNECT_DELAY_MS = 160
 
 export class LivePreviewEngine {
   private context: AudioContext | null = null
@@ -38,6 +39,8 @@ export class LivePreviewEngine {
   private currentBassEqHighHz = BASS_EQ_FREQ_HIGH_HZ
   private currentVirtualBassDb = 0
   private currentVirtualBassCutoffHz = VIRTUAL_BASS_CUTOFF_HZ
+  private vbBranchConnected = false
+  private vbDisconnectTimer: number | null = null
   private resumeHandler: (() => void) | null = null
 
   attach(element: HTMLVideoElement) {
@@ -48,7 +51,7 @@ export class LivePreviewEngine {
 
     this.detach()
 
-    const context = new AudioContext()
+    const context = this.context ?? new AudioContext()
     const source = context.createMediaElementSource(element)
     const peakingNode = context.createBiquadFilter()
     peakingNode.type = 'peaking'
@@ -80,7 +83,6 @@ export class LivePreviewEngine {
     source.connect(peakingNode)
     peakingNode.connect(masterGainNode)
 
-    source.connect(vbInputLowpassNode)
     vbInputLowpassNode.connect(vbSplitterNode)
     vbSplitterNode.connect(vbLeftGainNode, 0)
     vbSplitterNode.connect(vbRightGainNode, 1)
@@ -113,12 +115,16 @@ export class LivePreviewEngine {
     this.vbHighpassNode = vbHighpassNode
     this.vbLowpassNode = vbLowpassNode
     this.vbMixGainNode = vbMixGainNode
+    this.vbBranchConnected = false
     this.element = element
     this.resumeHandler = resumeHandler
     this.applyCurrentState()
   }
 
   detach() {
+    this.clearVirtualBassDisconnectTimer()
+    this.disconnectVirtualBassBranch()
+
     if (this.element && this.resumeHandler) {
       this.element.removeEventListener('play', this.resumeHandler)
     }
@@ -156,10 +162,6 @@ export class LivePreviewEngine {
     } catch {
       // no-op
     }
-
-    void this.context?.close().catch(() => undefined)
-
-    this.context = null
     this.source = null
     this.peakingNode = null
     this.masterGainNode = null
@@ -172,7 +174,17 @@ export class LivePreviewEngine {
     this.vbHighpassNode = null
     this.vbLowpassNode = null
     this.vbMixGainNode = null
+    this.vbBranchConnected = false
     this.element = null
+  }
+
+  destroy() {
+    this.detach()
+
+    const context = this.context
+    this.context = null
+
+    void context?.close().catch(() => undefined)
   }
 
   setGainDb(gainDb: number) {
@@ -228,6 +240,11 @@ export class LivePreviewEngine {
       this.currentMode === 'adjusted'
         ? mapVirtualBassDbToMixGain(this.currentVirtualBassDb)
         : 0
+    const shouldVirtualBassProcess = virtualBassMixValue > 0
+
+    if (shouldVirtualBassProcess) {
+      this.connectVirtualBassBranch()
+    }
 
     this.masterGainNode.gain.cancelScheduledValues(now)
     this.masterGainNode.gain.setTargetAtTime(
@@ -284,6 +301,56 @@ export class LivePreviewEngine {
       now,
       GAIN_SMOOTHING_SECONDS,
     )
+
+    if (!shouldVirtualBassProcess) {
+      this.scheduleVirtualBassDisconnect()
+    }
+  }
+
+  private connectVirtualBassBranch() {
+    this.clearVirtualBassDisconnectTimer()
+
+    if (!this.source || !this.vbInputLowpassNode || this.vbBranchConnected) {
+      return
+    }
+
+    this.source.connect(this.vbInputLowpassNode)
+    this.vbBranchConnected = true
+  }
+
+  private disconnectVirtualBassBranch() {
+    this.clearVirtualBassDisconnectTimer()
+
+    if (!this.source || !this.vbInputLowpassNode || !this.vbBranchConnected) {
+      return
+    }
+
+    try {
+      this.source.disconnect(this.vbInputLowpassNode)
+    } catch {
+      // no-op
+    }
+
+    this.vbBranchConnected = false
+  }
+
+  private scheduleVirtualBassDisconnect() {
+    if (!this.vbBranchConnected || this.vbDisconnectTimer !== null) {
+      return
+    }
+
+    this.vbDisconnectTimer = window.setTimeout(() => {
+      this.disconnectVirtualBassBranch()
+    }, VIRTUAL_BASS_DISCONNECT_DELAY_MS)
+  }
+
+  private clearVirtualBassDisconnectTimer() {
+    if (this.vbDisconnectTimer === null) {
+      return
+    }
+
+    window.clearTimeout(this.vbDisconnectTimer)
+    this.vbDisconnectTimer = null
   }
 }
 

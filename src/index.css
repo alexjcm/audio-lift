@@ -48,6 +48,16 @@ body {
     linear-gradient(180deg, #0b0c11 0%, #08090d 100%);
 }
 
+.mobile-floating-clearance {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+}
+
+@media (min-width: 768px) {
+  .mobile-floating-clearance {
+    padding-bottom: 1.5rem;
+  }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
   color: var(--text-main);
@@ -127,4 +137,3 @@ button {
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 20px 20px;
 }
-

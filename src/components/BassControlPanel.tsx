@@ -6,13 +6,11 @@ import {
   VIRTUAL_BASS_MIN_DB,
   VIRTUAL_BASS_STEP_DB,
 } from '../lib/constants'
-import { formatDb, formatHz } from '../lib/formatters'
+import { formatDb } from '../lib/formatters'
 import { cn, compactPanelClass } from '../lib/ui'
 
 type BassControlPanelProps = {
   bassEqDb: number
-  bassEqHighHz: number
-  bassEqLowHz: number
   canAdjust: boolean
   onBassEqChange: (value: number) => void
   onVirtualBassChange: (value: number) => void
@@ -21,8 +19,6 @@ type BassControlPanelProps = {
 
 export function BassControlPanel({
   bassEqDb,
-  bassEqHighHz,
-  bassEqLowHz,
   canAdjust,
   onBassEqChange,
   onVirtualBassChange,
@@ -30,20 +26,18 @@ export function BassControlPanel({
 }: BassControlPanelProps) {
   return (
     <section className={compactPanelClass}>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-2 flex items-center justify-between gap-3 md:mb-3">
         <div>
           <h2 className="text-technical text-ozone-accent">Low-End Processing</h2>
-          <p className="mt-1 text-[0.62rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted">
-            Bass body and psychoacoustic enhancement
-          </p>
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2.5 md:gap-3">
         <ControlRow
           canAdjust={canAdjust}
-          label="Bass EQ · Bass Body"
-          secondaryLabel={`${formatHz(bassEqLowHz)} - ${formatHz(bassEqHighHz)}`}
+          label="Bass EQ · Low-End EQ"
+          showActiveIndicator
+          isActive={bassEqDb > 0}
           value={bassEqDb}
           onChange={onBassEqChange}
           onReset={() => onBassEqChange(0)}
@@ -54,8 +48,9 @@ export function BassControlPanel({
 
         <ControlRow
           canAdjust={canAdjust}
-          label="Virtual Bass · Harmonic Synthesis"
-          secondaryLabel="Missing-fundamental enhancement"
+          label="Virtual Bass · Bass Enhancement"
+          showActiveIndicator
+          isActive={virtualBassDb > 0}
           value={virtualBassDb}
           onChange={onVirtualBassChange}
           onReset={() => onVirtualBassChange(0)}
@@ -78,11 +73,12 @@ export function BassControlPanel({
 
 type ControlRowProps = {
   canAdjust: boolean
+  isActive?: boolean
   label: string
-  secondaryLabel: string
   value: number
   onChange: (value: number) => void
   onReset: () => void
+  showActiveIndicator?: boolean
   min: number
   max: number
   step: number
@@ -90,35 +86,46 @@ type ControlRowProps = {
 
 function ControlRow({
   canAdjust,
+  isActive = false,
   label,
-  secondaryLabel,
   value,
   onChange,
   onReset,
+  showActiveIndicator = false,
   min,
   max,
   step,
 }: ControlRowProps) {
   return (
-    <div className="rounded-sm border border-ozone-border bg-black/35 p-3">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <div className="rounded-sm border border-ozone-border bg-black/35 p-2.5 md:p-3">
+      <div className="mb-2 flex items-start justify-between gap-2 md:mb-3 md:gap-3">
         <div className="min-w-0">
-          <p className="text-[0.68rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
-            {label}
-          </p>
-          <p className="mt-1 text-[0.58rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted">
-            {secondaryLabel}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[0.62rem] font-bold uppercase tracking-[0.05em] text-ozone-text md:text-[0.68rem] md:tracking-[0.06em]">
+              {label}
+            </p>
+            {showActiveIndicator ? (
+              <span
+                className={cn(
+                  'mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full border transition-all duration-200 md:h-2 md:w-2',
+                  isActive
+                    ? 'border-ozone-accent bg-ozone-accent shadow-[0_0_10px_rgba(0,240,255,0.75)]'
+                    : 'border-ozone-border-bright bg-transparent',
+                )}
+                aria-hidden="true"
+              />
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="min-w-[5.25rem] text-right text-[0.82rem] font-mono font-bold text-ozone-accent">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="min-w-[4.4rem] text-right text-[0.76rem] font-mono font-bold text-ozone-accent md:min-w-[5.25rem] md:text-[0.82rem]">
             {formatDb(value)}
           </span>
           <button
             type="button"
             className={cn(
-              'btn-technical rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200',
+              'btn-technical min-h-10 rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.48rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 md:min-h-11 md:px-3 md:py-2 md:text-[0.55rem]',
               'hover:border-ozone-accent/35 hover:text-ozone-accent',
               !canAdjust && 'cursor-not-allowed opacity-30',
             )}
@@ -139,10 +146,10 @@ function ControlRow({
         disabled={!canAdjust}
         aria-label={label}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="block h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)] disabled:cursor-not-allowed disabled:opacity-35"
+        className="block h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)] disabled:cursor-not-allowed disabled:opacity-35 md:h-3"
       />
 
-      <div className="mt-2 flex items-center justify-between text-[0.55rem] font-mono text-ozone-text-muted/85">
+      <div className="mt-1.5 flex items-center justify-between text-[0.48rem] font-mono text-ozone-text-muted/85 md:mt-2 md:text-[0.55rem]">
         <span>{formatDb(min)}</span>
         <span>{formatDb(max)}</span>
       </div>

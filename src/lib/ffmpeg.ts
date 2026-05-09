@@ -25,7 +25,6 @@ type ProgressHandler = (progress: number) => void
 type GeneratedBlob = {
   blob: Blob
   name: string
-  probe: ProbeResult
 }
 type BrowserMetadata = {
   durationSeconds: number | null
@@ -40,13 +39,14 @@ type ExportOptions = {
   virtualBassDb: number
   virtualBassCutoffHz: number
 }
-type ExportedAsset = GeneratedBlob & {
-  outputAnalysis: AudioAnalysis | null
-}
 
 class BrowserMediaEngine {
   private ffmpeg = new FFmpeg()
   private loadingPromise: Promise<void> | null = null
+
+  isLoaded() {
+    return this.ffmpeg.loaded
+  }
 
   async load() {
     if (this.ffmpeg.loaded) {
@@ -141,7 +141,7 @@ class BrowserMediaEngine {
     file: File,
     options: ExportOptions,
     onProgress?: ProgressHandler,
-  ): Promise<ExportedAsset> {
+  ): Promise<GeneratedBlob> {
     await this.load()
 
     const extension = getFileExtension(file.name) || 'mp4'
@@ -190,18 +190,6 @@ class BrowserMediaEngine {
           )
         }
 
-        const outputAnalysis = await this.analyzeMountedInput(outputPath)
-        const outputProbe = await this.probeMountedInput(outputPath)
-        const outputVideoStream = outputProbe.streams.find(
-          (stream) => stream.codec_type === 'video',
-        )
-
-        if (outputVideoStream?.codec_name !== videoStream?.codec_name) {
-          throw new Error(
-            'The output did not preserve the original video codec. A misleading file will not be generated.',
-          )
-        }
-
         const bytes = await this.ffmpeg.readFile(outputPath)
         await this.safeDeleteFile(outputPath)
 
@@ -217,9 +205,7 @@ class BrowserMediaEngine {
         return {
           blob: new Blob([arrayBuffer], { type: getPreviewMimeType(file) }),
           name: outputName,
-          probe: outputProbe,
-          outputAnalysis,
-        } satisfies ExportedAsset
+        } satisfies GeneratedBlob
       } finally {
         this.ffmpeg.off('progress', handleProgress)
         onProgress?.(0)

@@ -13,6 +13,12 @@ export type PlaybackSupportStatus =
   | 'likely'
   | 'unknown'
   | 'unsupported'
+export type EngineStatus =
+  | 'not_ready'
+  | 'preparing'
+  | 'ready'
+  | 'failed'
+export type MobileRenderWarningLevel = 'warning' | 'critical'
 
 export type ValidationCode =
   | 'unsupported-format'
@@ -99,6 +105,7 @@ export interface DerivedAnalysis {
   gainDb: number
   bassEqDb: number
   virtualBassDb: number
+  processingActive: boolean
   projectedTruePeakDbtp: number
   exceedsTruePeakHeadroom: boolean
   limiterLikelyRequired: boolean
@@ -107,20 +114,14 @@ export interface DerivedAnalysis {
   marginLabel: MarginLabel
 }
 
+export interface MobileRenderWarning {
+  level: MobileRenderWarningLevel
+  title: string
+  detail: string
+}
+
 export interface GlobalSettings {
   bassEqLowHz: number
   bassEqHighHz: number
   virtualBassCutoffHz: number
-}
-
-export interface GeneratedAsset {
-  name: string
-  sizeBytes: number
-  url: string
-  mediaSummary: MediaSummary | null
-  appliedGainDb: number
-  appliedBassEqDb: number
-  appliedVirtualBassDb: number
-  outputAnalysis: AudioAnalysis | null
-  warnings: string[]
 }

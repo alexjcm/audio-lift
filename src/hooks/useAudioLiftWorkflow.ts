@@ -5,6 +5,8 @@ import {
   DEFAULT_VIRTUAL_BASS_DB,
   SETTINGS_STORAGE_KEY,
 } from '../lib/constants'
+import { isLikelyAppleMobileDevice } from '../lib/deviceProfile'
+import { triggerFileDownload } from '../lib/exportDelivery'
 import { browserMediaEngine } from '../lib/ffmpeg'
 import { LivePreviewEngine } from '../lib/livePreview'
 import {
@@ -20,13 +22,13 @@ import {
   buildMediaSummary,
   getBlockingIssue,
   getFeedbackMessages,
-  getRenderedMasterWarnings,
+  getMobileRenderWarning,
   validateSelectedFile,
 } from '../lib/validation'
 import type {
   AudioAnalysis,
   BrowserPlaybackSupport,
-  GeneratedAsset,
+  EngineStatus,
   GlobalSettings,
   MediaSummary,
   PreviewMode,
@@ -39,7 +41,6 @@ export function useAudioLiftWorkflow() {
   const requestIdRef = useRef(0)
   const livePreviewRef = useRef<LivePreviewEngine | null>(null)
   const selectedFileUrlRef = useRef<string | null>(null)
-  const exportAssetRef = useRef<GeneratedAsset | null>(null)
 
   if (!livePreviewRef.current) {
     livePreviewRef.current = new LivePreviewEngine()
@@ -57,15 +58,20 @@ export function useAudioLiftWorkflow() {
   const [gainDb, setGainDb] = useState(DEFAULT_GAIN_DB)
   const [bassEqDb, setBassEqDb] = useState(DEFAULT_BASS_EQ_DB)
   const [virtualBassDb, setVirtualBassDb] = useState(DEFAULT_VIRTUAL_BASS_DB)
+  const [engineStatus, setEngineStatus] = useState<EngineStatus>('not_ready')
+  const [engineStatusMessage, setEngineStatusMessage] = useState<string | null>(
+    null,
+  )
+  const [importWorkflowStatusMessage, setImportWorkflowStatusMessage] =
+    useState<string | null>(null)
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() =>
     loadGlobalSettings(),
   )
   const [previewMode, setPreviewMode] = useState<PreviewMode>('original')
-  const [exportAsset, setExportAsset] = useState<GeneratedAsset | null>(null)
   const [blockingIssue, setBlockingIssue] = useState<ValidationIssue | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const isAppleMobileDevice = isLikelyAppleMobileDevice()
+  const shouldWarnForMobile = isAppleMobileDevice
 
   const {
     bassEqLowHz,
@@ -104,8 +110,7 @@ export function useAudioLiftWorkflow() {
   useEffect(() => {
     return () => {
       revokeObjectUrl(selectedFileUrlRef.current)
-      revokeObjectUrl(exportAssetRef.current?.url ?? null)
-      livePreview.detach()
+      livePreview.destroy()
     }
   }, [livePreview])
 
@@ -114,7 +119,15 @@ export function useAudioLiftWorkflow() {
     : null
   const canAdjustVolume = Boolean(baseAnalysis && derivedAnalysis)
   const feedbackMessages = getFeedbackMessages(baseAnalysis, derivedAnalysis)
+  const mobileRenderWarning = getMobileRenderWarning(
+    mediaSummary,
+    shouldWarnForMobile,
+  )
   const activeVideoSrc = selectedFileUrl
+  const hasAudioAdjustments =
+    gainDb !== DEFAULT_GAIN_DB ||
+    bassEqDb !== DEFAULT_BASS_EQ_DB ||
+    virtualBassDb !== DEFAULT_VIRTUAL_BASS_DB
 
   const replaceSelectedFileUrl = (nextUrl: string | null) => {
     if (selectedFileUrlRef.current && selectedFileUrlRef.current !== nextUrl) {
@@ -125,15 +138,6 @@ export function useAudioLiftWorkflow() {
     setSelectedFileUrl(nextUrl)
   }
 
-  const replaceExportAsset = (nextAsset: GeneratedAsset | null) => {
-    if (exportAssetRef.current?.url && exportAssetRef.current !== nextAsset) {
-      revokeObjectUrl(exportAssetRef.current.url)
-    }
-
-    exportAssetRef.current = nextAsset
-    setExportAsset(nextAsset)
-  }
-
   const resetForNewSelection = () => {
     setMediaSummary(null)
     setBaseAnalysis(null)
@@ -141,18 +145,12 @@ export function useAudioLiftWorkflow() {
     setBlockingIssue(null)
     setPhase('idle')
     setPreviewMode('original')
+    setImportWorkflowStatusMessage(null)
     setGainDb(DEFAULT_GAIN_DB)
     setBassEqDb(DEFAULT_BASS_EQ_DB)
     setVirtualBassDb(DEFAULT_VIRTUAL_BASS_DB)
     setIsPlaying(false)
-    setCurrentTime(0)
-    setDuration(0)
-    replaceExportAsset(null)
     livePreview.detach()
-  }
-
-  const invalidateExport = () => {
-    replaceExportAsset(null)
   }
 
   const handleGainChange = (value: number) => {
@@ -161,7 +159,6 @@ export function useAudioLiftWorkflow() {
     }
 
     setGainDb(value)
-    invalidateExport()
   }
 
   const handleBassEqChange = (value: number) => {
@@ -170,7 +167,6 @@ export function useAudioLiftWorkflow() {
     }
 
     setBassEqDb(value)
-    invalidateExport()
   }
 
   const handleVirtualBassChange = (value: number) => {
@@ -179,7 +175,6 @@ export function useAudioLiftWorkflow() {
     }
 
     setVirtualBassDb(value)
-    invalidateExport()
   }
 
   const handleBassEqLowChange = (value: number) => {
@@ -190,7 +185,6 @@ export function useAudioLiftWorkflow() {
       })
       return next
     })
-    invalidateExport()
   }
 
   const handleBassEqHighChange = (value: number) => {
@@ -201,7 +195,6 @@ export function useAudioLiftWorkflow() {
       })
       return next
     })
-    invalidateExport()
   }
 
   const handleVirtualBassCutoffChange = (value: number) => {
@@ -209,12 +202,10 @@ export function useAudioLiftWorkflow() {
       ...current,
       virtualBassCutoffHz: clampVirtualBassCutoffHz(value),
     }))
-    invalidateExport()
   }
 
   const handleResetGlobalSettings = () => {
     setGlobalSettings(getDefaultGlobalSettings())
-    invalidateExport()
   }
 
   const handleFileSelection = async (file: File) => {
@@ -237,11 +228,24 @@ export function useAudioLiftWorkflow() {
     }
 
     try {
+      const engineWasReady = browserMediaEngine.isLoaded()
+      setEngineStatus(engineWasReady ? 'ready' : 'preparing')
+      setEngineStatusMessage(
+        engineWasReady ? null : 'Preparing local export engine...',
+      )
+      setImportWorkflowStatusMessage(
+        engineWasReady ? 'Reading media details...' : 'Preparing local export engine...',
+      )
+
       await browserMediaEngine.load()
 
       if (requestId !== requestIdRef.current) {
         return
       }
+
+      setEngineStatus('ready')
+      setEngineStatusMessage(null)
+      setImportWorkflowStatusMessage('Reading media details...')
 
       const probeResult = await browserMediaEngine.probe(file)
 
@@ -258,11 +262,16 @@ export function useAudioLiftWorkflow() {
       })
 
       if (issue) {
+        setImportWorkflowStatusMessage(null)
         setPhase('blocked')
         return
       }
 
-      const support = await assessBrowserPlaybackSupport(summary)
+      setImportWorkflowStatusMessage('Checking browser playback...')
+      const supportPromise = assessBrowserPlaybackSupport(summary)
+      const analysisPromise = browserMediaEngine.analyze(file)
+
+      const support = await supportPromise
 
       if (requestId !== requestIdRef.current) {
         return
@@ -272,7 +281,8 @@ export function useAudioLiftWorkflow() {
         setPlaybackSupport(support)
       })
 
-      const exactAnalysis = await browserMediaEngine.analyze(file)
+      setImportWorkflowStatusMessage('Analyzing audio...')
+      const exactAnalysis = await analysisPromise
 
       if (requestId !== requestIdRef.current) {
         return
@@ -282,6 +292,7 @@ export function useAudioLiftWorkflow() {
         setBaseAnalysis(exactAnalysis)
         setPhase('ready')
       })
+      setImportWorkflowStatusMessage(null)
     } catch (error) {
       if (requestId !== requestIdRef.current) {
         return
@@ -290,6 +301,11 @@ export function useAudioLiftWorkflow() {
       const message =
         error instanceof Error ? error.message : 'Unexpected error'
 
+      setEngineStatus('failed')
+      setEngineStatusMessage(
+        'The local export engine needs a first successful online load before it can be reused offline.',
+      )
+      setImportWorkflowStatusMessage(null)
       setPhase('error')
       setBlockingIssue({
         code: 'analysis-failed',
@@ -301,6 +317,15 @@ export function useAudioLiftWorkflow() {
 
   const handleExport = async () => {
     if (!selectedFile || !derivedAnalysis) {
+      return
+    }
+
+    if (!hasAudioAdjustments) {
+      const originalUrl = URL.createObjectURL(selectedFile)
+      triggerFileDownload(originalUrl, selectedFile.name)
+      window.setTimeout(() => {
+        revokeObjectUrl(originalUrl)
+      }, 5_000)
       return
     }
 
@@ -321,24 +346,11 @@ export function useAudioLiftWorkflow() {
       )
 
       const exportUrl = URL.createObjectURL(result.blob)
-      const warnings = getRenderedMasterWarnings(result.outputAnalysis)
-
-      replaceExportAsset({
-        name: result.name,
-        sizeBytes: result.blob.size,
-        url: exportUrl,
-        mediaSummary: buildMediaSummary(result.probe, {
-          name: result.name,
-          size: result.blob.size,
-        }),
-        appliedGainDb: gainDb,
-        appliedBassEqDb: bassEqDb,
-        appliedVirtualBassDb: virtualBassDb,
-        outputAnalysis: result.outputAnalysis,
-        warnings,
-      })
-      setPhase('ready')
       triggerFileDownload(exportUrl, result.name)
+      window.setTimeout(() => {
+        revokeObjectUrl(exportUrl)
+      }, 5_000)
+      setPhase('ready')
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Error exporting file'
@@ -366,8 +378,6 @@ export function useAudioLiftWorkflow() {
       return
     }
 
-    setCurrentTime(element.currentTime)
-    setDuration(Number.isFinite(element.duration) ? element.duration : 0)
     livePreview.attach(element)
     livePreview.setGainDb(gainDb)
     livePreview.setBassEqDb(bassEqDb)
@@ -402,7 +412,6 @@ export function useAudioLiftWorkflow() {
     }
 
     element.currentTime = nextTime
-    setCurrentTime(nextTime)
   }
 
   const handleVideoPlay = () => {
@@ -414,18 +423,7 @@ export function useAudioLiftWorkflow() {
   }
 
   const handleVideoEnded = () => {
-    const element = videoRef.current
     setIsPlaying(false)
-    setCurrentTime(element ? element.duration : 0)
-  }
-
-  const handleVideoTimeUpdate = () => {
-    const element = videoRef.current
-    if (!element) {
-      return
-    }
-
-    setCurrentTime(element.currentTime)
   }
 
   return {
@@ -436,10 +434,9 @@ export function useAudioLiftWorkflow() {
     bassEqLowHz,
     blockingIssue,
     canAdjustVolume,
-    currentTime,
     derivedAnalysis,
-    duration,
-    exportAsset,
+    engineStatus,
+    engineStatusMessage,
     feedbackMessages,
     gainDb,
     handleBassEqChange,
@@ -456,11 +453,12 @@ export function useAudioLiftWorkflow() {
     handleVideoLoadedMetadata,
     handleVideoPause,
     handleVideoPlay,
-    handleVideoTimeUpdate,
     handleVirtualBassChange,
     handleVirtualBassCutoffChange,
+    importWorkflowStatusMessage,
     isPlaying,
     mediaSummary,
+    mobileRenderWarning,
     phase,
     playbackSupport,
     previewMode,
@@ -469,16 +467,6 @@ export function useAudioLiftWorkflow() {
     virtualBassCutoffHz,
     virtualBassDb,
   }
-}
-
-function triggerFileDownload(url: string, fileName: string) {
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  anchor.style.display = 'none'
-  document.body.append(anchor)
-  anchor.click()
-  anchor.remove()
 }
 
 function revokeObjectUrl(url: string | null) {

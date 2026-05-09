@@ -53,7 +53,7 @@ export function SettingsPanel({
       <button
         type="button"
         className={cn(
-          'btn-technical inline-flex self-start items-center justify-center gap-2 rounded-[2px] border border-ozone-border px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200',
+          'btn-technical hidden min-h-11 self-start items-center justify-center gap-2 rounded-[2px] border border-ozone-border px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 md:inline-flex',
           'bg-black/35 hover:border-ozone-accent/35 hover:text-ozone-accent',
           isOpen && 'border-ozone-accent/35 text-ozone-accent glow-cyan',
         )}
@@ -64,6 +64,32 @@ export function SettingsPanel({
         <svg
           viewBox="0 0 24 24"
           className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <path d="M12 3v4m0 10v4m9-9h-4M7 12H3m15.36-6.36-2.83 2.83M8.47 15.53l-2.83 2.83m0-12.72 2.83 2.83m9.89 9.89-2.83-2.83" />
+        </svg>
+        Settings
+        </button>
+
+      <button
+        type="button"
+        className={cn(
+          'btn-technical fixed right-4 z-[80] inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-ozone-border px-4 py-3 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted shadow-[0_12px_28px_-14px_rgba(0,0,0,0.78)] backdrop-blur md:hidden',
+          'bg-[#10141d]/92 hover:border-ozone-accent/35 hover:text-ozone-accent',
+          isOpen && 'border-ozone-accent/35 text-ozone-accent glow-cyan',
+        )}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        aria-label="Open settings"
+        onClick={() => setIsOpen((value) => !value)}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-4 w-4"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -108,14 +134,14 @@ export function SettingsPanel({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="btn-technical rounded-[2px] border border-ozone-border px-2 py-1 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
+                      className="btn-technical min-h-11 rounded-[2px] border border-ozone-border px-3 py-2 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
                       onClick={onReset}
                     >
                       Reset
                     </button>
                     <button
                       type="button"
-                      className="btn-technical inline-flex h-7 w-7 items-center justify-center rounded-[2px] border border-ozone-border text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
+                      className="btn-technical inline-flex h-11 w-11 items-center justify-center rounded-[2px] border border-ozone-border text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
                       aria-label="Close settings"
                       onClick={() => setIsOpen(false)}
                     >
@@ -237,7 +263,7 @@ function SettingRow({
         value={value}
         aria-label={label}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="block h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)]"
+        className="block h-3 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)]"
       />
 
       <div className="mt-1.5 flex items-center justify-between text-[0.5rem] font-mono text-ozone-text-muted/70">
