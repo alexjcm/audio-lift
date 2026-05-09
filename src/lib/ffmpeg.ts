@@ -426,10 +426,11 @@ function buildExportArgs(
 
   const centerHz = deriveBassEqCenterHz(options.bassEqLowHz, options.bassEqHighHz)
   const q = deriveBassEqQ(options.bassEqLowHz, options.bassEqHighHz)
+  const truePeakOversampleRate = getTruePeakOversampleRate(options.audioSampleRate)
   const limiterChain = [
     `equalizer=f=${centerHz.toFixed(2)}:width_type=q:width=${q.toFixed(4)}:g=${options.bassEqDb.toFixed(1)}`,
     `volume=${options.gainDb.toFixed(1)}dB`,
-    'aresample=192000',
+    `aresample=${truePeakOversampleRate}`,
     `alimiter=limit=${TRUE_PEAK_LIMIT_LINEAR.toFixed(6)}:level=false`,
     `aresample=${options.audioSampleRate}`,
   ]
@@ -485,6 +486,18 @@ function getMonoFoldFilter(channels: number) {
   }
 
   return ',pan=mono|c0=.5*c0+.5*c1'
+}
+
+function getTruePeakOversampleRate(audioSampleRate: number) {
+  if (audioSampleRate === 44_100) {
+    return 176_400
+  }
+
+  if (audioSampleRate === 48_000) {
+    return 192_000
+  }
+
+  return audioSampleRate * 4
 }
 
 async function createBlobUrl(

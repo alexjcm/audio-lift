@@ -1,4 +1,4 @@
-export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
+export const MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024
 export const MAX_DURATION_SECONDS = 180
 
 export const GAIN_MIN_DB = 0

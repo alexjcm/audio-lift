@@ -6,6 +6,7 @@ import {
   SUPPORTED_VIDEO_CODECS,
   VIRTUAL_BASS_MAX_DB,
 } from './constants'
+import { formatBytes } from './formatters'
 import { TRUE_PEAK_TARGET_DBTP } from './virtualBass'
 import type {
   AudioAnalysis,
@@ -42,7 +43,7 @@ export function validateSelectedFile(file: File): ValidationIssue | null {
   if (file.size > MAX_FILE_SIZE_BYTES) {
     return {
       code: 'file-too-large',
-      message: 'The file exceeds the 100 MB MVP limit.',
+      message: `The selected file is ${formatBytes(file.size)}, which exceeds the ${formatBytes(MAX_FILE_SIZE_BYTES)} limit.`,
       canRecover: true,
     }
   }
