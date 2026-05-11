@@ -2,7 +2,7 @@ import {
   BASS_EQ_FREQ_HIGH_HZ,
   BASS_EQ_FREQ_LOW_HZ,
   VIRTUAL_BASS_CUTOFF_HZ,
-  VIRTUAL_BASS_DRIVE,
+  DEFAULT_VIRTUAL_BASS_DRIVE,
   VIRTUAL_BASS_HARMONIC_HP_HZ,
   VIRTUAL_BASS_HARMONIC_LP_HZ,
 } from './constants'
@@ -39,6 +39,7 @@ export class LivePreviewEngine {
   private currentBassEqHighHz = BASS_EQ_FREQ_HIGH_HZ
   private currentVirtualBassDb = 0
   private currentVirtualBassCutoffHz = VIRTUAL_BASS_CUTOFF_HZ
+  private currentVirtualBassDrive = DEFAULT_VIRTUAL_BASS_DRIVE
   private vbBranchConnected = false
   private vbDisconnectTimer: number | null = null
   private resumeHandler: (() => void) | null = null
@@ -69,7 +70,7 @@ export class LivePreviewEngine {
     vbMonoSumNode.channelCountMode = 'explicit'
 
     const vbShaperNode = context.createWaveShaper()
-    vbShaperNode.curve = createTanhCurve(VIRTUAL_BASS_DRIVE)
+    vbShaperNode.curve = createTanhCurve(this.currentVirtualBassDrive)
     vbShaperNode.oversample = '4x'
 
     const vbHighpassNode = context.createBiquadFilter()
@@ -211,6 +212,16 @@ export class LivePreviewEngine {
   setVirtualBassCutoffHz(cutoffHz: number) {
     this.currentVirtualBassCutoffHz = cutoffHz
     this.applyCurrentState()
+  }
+
+  setVirtualBassDrive(drive: number) {
+    if (this.currentVirtualBassDrive === drive) {
+      return
+    }
+    this.currentVirtualBassDrive = drive
+    if (this.vbShaperNode) {
+      this.vbShaperNode.curve = createTanhCurve(drive)
+    }
   }
 
   setMode(mode: PreviewMode) {

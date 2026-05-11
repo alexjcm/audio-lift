@@ -9,6 +9,7 @@ import {
 import { formatDuration, formatFileNameMiddle } from '../lib/formatters'
 import { cn, panelClass } from '../lib/ui'
 import type { PreviewMode } from '../types'
+import { IconNoSignal, IconPause, IconPlay } from './Icons'
 
 type PreviewPanelProps = {
   activeVideoSrc: string | null
@@ -44,20 +45,55 @@ export function PreviewPanel({
   videoRef,
 }: PreviewPanelProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null)
+  const scrubberRef = useRef<HTMLInputElement | null>(null)
+  const timeDisplayRef = useRef<HTMLSpanElement | null>(null)
+  const rafIdRef = useRef<number | null>(null)
   const [importInputKey, setImportInputKey] = useState(0)
   const [importStatusMessage, setImportStatusMessage] = useState<string | null>(
     null,
   )
   const [isImporting, setIsImporting] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
   useEffect(() => {
     if (!activeVideoSrc) {
-      setCurrentTime(0)
       setDuration(0)
+      if (scrubberRef.current) scrubberRef.current.value = '0'
+      if (timeDisplayRef.current) timeDisplayRef.current.textContent = ''
     }
   }, [activeVideoSrc])
+
+  // RAF loop: updates scrubber + time display at 60fps without React re-renders
+  useEffect(() => {
+    if (!isPlaying) {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+      return
+    }
+
+    const tick = () => {
+      const video = videoRef.current
+      const scrubber = scrubberRef.current
+      if (video && scrubber && Number.isFinite(video.duration) && video.duration > 0) {
+        scrubber.value = String(video.currentTime)
+        if (timeDisplayRef.current) {
+          timeDisplayRef.current.textContent = `${formatDuration(video.currentTime)} / ${formatDuration(video.duration)}`
+        }
+      }
+      rafIdRef.current = requestAnimationFrame(tick)
+    }
+
+    rafIdRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+    }
+  }, [isPlaying, videoRef])
 
   useEffect(() => {
     const input = importInputRef.current
@@ -114,42 +150,44 @@ export function PreviewPanel({
   const handleLoadedMetadata = () => {
     const element = videoRef.current
     if (element) {
-      setCurrentTime(element.currentTime)
-      setDuration(Number.isFinite(element.duration) ? element.duration : 0)
+      const d = Number.isFinite(element.duration) ? element.duration : 0
+      setDuration(d)
+      if (scrubberRef.current) {
+        scrubberRef.current.max = String(d)
+        scrubberRef.current.value = '0'
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = `${formatDuration(0)} / ${formatDuration(d)}`
+      }
     }
-
     onLoadedMetadata()
   }
 
-  const handleTimeUpdate = () => {
-    const element = videoRef.current
-    if (!element) {
-      return
-    }
-
-    setCurrentTime(element.currentTime)
-  }
-
   const handleSeekInput = (nextTime: number) => {
-    setCurrentTime(nextTime)
+    if (scrubberRef.current) scrubberRef.current.value = String(nextTime)
+    if (timeDisplayRef.current) {
+      timeDisplayRef.current.textContent = `${formatDuration(nextTime)} / ${formatDuration(duration)}`
+    }
     onSeekChange(nextTime)
   }
 
   const handleVideoEnded = () => {
     const element = videoRef.current
-    setCurrentTime(element ? element.duration : duration)
+    const endTime = element ? element.duration : duration
+    if (scrubberRef.current) scrubberRef.current.value = String(endTime)
     onEnded()
 
     if (previewMode === 'adjusted' && element) {
       element.currentTime = 0
-      setCurrentTime(0)
+      if (scrubberRef.current) scrubberRef.current.value = '0'
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = `${formatDuration(0)} / ${formatDuration(duration)}`
+      }
       void onPlayPause()
     }
   }
 
   const scrubberMax = duration > 0 ? duration : 0
-  const scrubberValue =
-    scrubberMax > 0 ? Math.min(currentTime, scrubberMax) : 0
   const visibleImportStatusMessage =
     importWorkflowStatusMessage ?? importStatusMessage
 
@@ -162,7 +200,7 @@ export function PreviewPanel({
       ) : null}
 
       <div className="relative shrink-0">
-        <div className="btn-technical inline-flex min-h-10 items-center justify-center rounded-[2px] border border-ozone-border px-2.5 py-1.5 text-[0.58rem] font-bold uppercase tracking-[0.06em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent max-[720px]:min-h-8 max-[720px]:px-2 max-[720px]:py-1 max-[720px]:text-[0.54rem] md:min-h-11 md:px-3 md:py-2 md:text-[0.62rem]">
+        <div className="btn-technical min-h-10 px-2.5 py-1.5 text-[0.58rem] tracking-[0.06em] max-[720px]:min-h-8 max-[720px]:px-2 max-[720px]:py-1 max-[720px]:text-[0.54rem] md:min-h-11 md:px-3 md:py-2 md:text-[0.62rem]">
           {isImporting ? 'Loading Video...' : 'Import Media'}
         </div>
         <input
@@ -213,15 +251,12 @@ export function PreviewPanel({
                 onLoadedMetadata={handleLoadedMetadata}
                 onPause={onPause}
                 onPlay={onPlay}
-                onTimeUpdate={handleTimeUpdate}
               />
             </div>
           ) : (
             <div className="grid min-h-[180px] h-full w-full place-items-center p-6 text-center text-technical text-ozone-text-muted opacity-40">
               <div className="flex flex-col items-center gap-4">
-                <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="0.5">
-                  <path d="M12 20v-8m0 0V4m0 8h8m-8 0H4" strokeLinecap="round"/>
-                </svg>
+                <IconNoSignal className="w-12 h-12 text-ozone-text-muted" />
                 NO SIGNAL DETECTED
               </div>
             </div>
@@ -239,33 +274,20 @@ export function PreviewPanel({
                   aria-label={isPlaying ? 'Pause video' : 'Play video'}
                 >
                   {isPlaying ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M7 5h3v14H7zM14 5h3v14h-3z" />
-                    </svg>
+                    <IconPause className="h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]" aria-hidden="true" />
                   ) : (
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="ml-0.5 h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+                    <IconPlay className="ml-0.5 h-5 w-5 max-[720px]:h-[21px] max-[720px]:w-[21px]" aria-hidden="true" />
                   )}
                 </button>
 
                 <div className="min-w-0 flex flex-1 items-center">
                   <input
+                    ref={scrubberRef}
                     type="range"
                     min={0}
                     max={scrubberMax}
                     step="any"
-                    value={scrubberValue}
+                    defaultValue={0}
                     onChange={(event) =>
                       handleSeekInput(Number(event.target.value))
                     }
@@ -275,9 +297,10 @@ export function PreviewPanel({
                   />
                 </div>
 
-                <div className="hidden shrink-0 text-right font-mono text-[0.54rem] text-white/84 md:block">
-                  {formatDuration(currentTime)} / {formatDuration(duration)}
-                </div>
+                <span
+                  ref={timeDisplayRef}
+                  className="hidden shrink-0 text-right font-mono text-[0.54rem] text-white/84 md:block"
+                />
               </div>
             </div>
           ) : null}
@@ -314,41 +337,49 @@ export function PreviewPanel({
           </div>
         )}
 
-        {/* Mode Selector */}
+        {/* Bypass Toggle */}
         <div className="mt-1 max-[720px]:mt-0.5">
-          <div
-            className="grid grid-cols-2 gap-1 border border-ozone-border bg-black/40 p-1 rounded-sm"
-            role="tablist"
+          <button
+            type="button"
+            disabled={!activeVideoSrc}
+            className={cn(
+              'btn-technical flex w-full min-h-10 gap-2 rounded-sm px-3 py-1.5 text-[0.62rem] tracking-[0.08em] md:min-h-11 md:gap-2.5 md:py-2 md:text-[0.7rem]',
+              previewMode === 'original'
+                ? 'border-ozone-accent/40 bg-ozone-accent/10 text-ozone-accent glow-cyan'
+                : 'border-ozone-border bg-black/40 text-ozone-text-muted hover:border-ozone-accent/25 hover:text-ozone-text',
+              !activeVideoSrc && 'cursor-not-allowed opacity-30',
+            )}
+            aria-pressed={previewMode === 'original'}
+            aria-label={previewMode === 'original' ? 'Bypass active — listening to original signal' : 'Bypass inactive — listening to processed output'}
+            onClick={() =>
+              onPreviewModeChange(
+                previewMode === 'original' ? 'adjusted' : 'original',
+              )
+            }
           >
-            <button
-              type="button"
+            {/* LED indicator */}
+            <span
               className={cn(
-                "btn-technical flex min-h-10 items-center justify-center gap-1.5 px-3 py-1.5 text-[0.62rem] font-bold uppercase transition-all duration-200 md:min-h-11 md:gap-2 md:px-4 md:py-2 md:text-[0.7rem]",
-                previewMode === 'original' 
-                  ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
-                  : "text-ozone-text-muted hover:text-ozone-text"
+                'h-1.5 w-1.5 rounded-full transition-all duration-300',
+                previewMode === 'original'
+                  ? 'bg-ozone-accent shadow-[0_0_6px_rgba(0,240,255,0.9)] animate-pulse'
+                  : 'bg-ozone-text-muted/40',
               )}
-              onClick={() => onPreviewModeChange('original')}
-            >
-              <div className={cn("h-1 w-1 rounded-full bg-current", previewMode === 'original' && "animate-pulse")}></div>
-              Original Signal
-            </button>
-            <button
-              type="button"
+              aria-hidden="true"
+            />
+            Bypass
+            {/* State label */}
+            <span
               className={cn(
-                "btn-technical flex min-h-10 items-center justify-center gap-1.5 px-3 py-1.5 text-[0.62rem] font-bold uppercase transition-all duration-200 md:min-h-11 md:gap-2 md:px-4 md:py-2 md:text-[0.7rem]",
-                previewMode === 'adjusted' 
-                  ? "bg-ozone-accent/10 text-ozone-accent border border-ozone-accent/30 glow-cyan" 
-                  : "text-ozone-text-muted hover:text-ozone-text",
-                !activeVideoSrc && "opacity-20 cursor-not-allowed"
+                'ml-1 text-[0.5rem] tracking-[0.1em] transition-all duration-200',
+                previewMode === 'original'
+                  ? 'text-ozone-accent/75'
+                  : 'text-ozone-text-muted/50',
               )}
-              onClick={() => onPreviewModeChange('adjusted')}
-              disabled={!activeVideoSrc}
             >
-              <div className={cn("h-1 w-1 rounded-full bg-current", previewMode === 'adjusted' && "animate-pulse")}></div>
-              Processed Output
-            </button>
-          </div>
+              {previewMode === 'original' ? 'ON · ORIGINAL' : 'OFF · PROCESSED'}
+            </span>
+          </button>
         </div>
       </section>
     </aside>

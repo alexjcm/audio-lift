@@ -5,7 +5,8 @@ import {
   GAIN_STEP_DB,
 } from '../lib/constants'
 import { formatTruePeak } from '../lib/formatters'
-import { cn, compactPanelClass, getPillClass } from '../lib/ui'
+import { cn, compactPanelClass } from '../lib/ui'
+import { IconWarningTriangle } from './Icons'
 import type { DerivedAnalysis } from '../types'
 
 type GainControlPanelProps = {
@@ -90,28 +91,11 @@ export function GainControlPanel({
                       aria-label={`Show ${feedbackMessages.length} warning${feedbackMessages.length === 1 ? '' : 's'}`}
                       onClick={() => setIsWarningsOpen((value) => !value)}
                     >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M12 4l8 14H4L12 4z"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path d="M12 9v4m0 3h.01" strokeLinecap="round" />
-                      </svg>
+                      <IconWarningTriangle className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 ) : null}
 
-                <span className={cn(getPillClass('neutral'), 'inline-flex min-h-8 items-center px-1.5 py-0 text-[0.48rem] md:px-2 md:py-1 md:text-[0.58rem]')}>
-                  Margin: {derivedAnalysis?.marginLabel ?? '---'}
-                </span>
               </div>
             </div>
           </header>
@@ -186,21 +170,20 @@ export function GainControlPanel({
         <div className="flex h-[182px] flex-col items-center gap-1 self-start pt-0.5 md:h-[208px]">
           <div className="relative flex h-full items-center">
             {/* Scale markings */}
-            <div className="absolute -left-6.5 flex h-full flex-col justify-between py-1 text-[0.52rem] font-mono text-ozone-text-muted/90 md:-left-7 md:text-[0.62rem]">
-              <span>+12</span>
-              <span>+9</span>
-              <span>+6</span>
-              <span>+3</span>
+            <div className="absolute -left-6.5 flex h-full flex-col justify-between py-1 text-[0.65rem] font-mono text-ozone-text-muted/90 md:-left-7">
+              <span>+10</span>
+              <span>+7.5</span>
+              <span>+5</span>
+              <span>+2.5</span>
               <span>0</span>
             </div>
             
             {/* The Track */}
-            <div className="h-full w-2.5 rounded-full border border-ozone-border-bright bg-black overflow-hidden shadow-[0_0_18px_rgba(0,240,255,0.04)] md:w-2">
+            <div className="relative h-full w-2 rounded-full bg-white/15 overflow-hidden">
                <div 
-                 className="w-full bg-ozone-accent glow-cyan transition-all duration-100" 
+                 className="absolute bottom-0 w-full bg-ozone-accent/65 transition-all duration-100" 
                  style={{ 
-                   height: `${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}%`,
-                   marginTop: 'auto'
+                   height: `${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}%`
                  }}
                ></div>
             </div>
@@ -221,14 +204,17 @@ export function GainControlPanel({
               onChange={(event) => onGainChange(Number(event.target.value))}
             />
             
-            {/* Custom Thumb Visual */}
+            {/* Custom Thumb Visual (Restored Rectangular Fader Cap) */}
             <div 
-              className="pointer-events-none absolute -left-[1.15rem] h-5 w-10 rounded-sm border border-ozone-accent bg-white shadow-lg glow-cyan md:-left-4 md:h-4 md:w-9"
+              className={cn(
+                "pointer-events-none absolute left-1/2 w-10 h-5 -translate-x-1/2 rounded-[4px] bg-white shadow-[0_0_15px_rgba(0,240,255,0.7)] border border-ozone-accent/40 transition-all duration-200",
+                !canAdjustVolume && "opacity-35"
+              )}
               style={{ 
-                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 8px)` 
+                bottom: `calc(${((gainDb - GAIN_MIN_DB) / (GAIN_MAX_DB - GAIN_MIN_DB)) * 100}% - 10px)` 
               }}
             >
-              <div className="mt-[8px] h-[1px] w-full bg-ozone-accent md:mt-[6px]"></div>
+              <div className="absolute top-1/2 left-0 right-0 h-px bg-ozone-accent/50 -translate-y-1/2" />
             </div>
           </div>
           <span className="mt-1.5 text-[0.5rem] text-technical tracking-[0.08em] text-ozone-text-muted/90 md:mt-2 md:text-[0.58rem]">Fader</span>

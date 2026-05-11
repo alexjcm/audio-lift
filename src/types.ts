@@ -8,7 +8,7 @@ export type ProcessingPhase =
 export type AudioState = 'low' | 'adequate' | 'high'
 export type MarginLabel = 'Wide' | 'Medium' | 'Low'
 export type PreviewMode = 'original' | 'adjusted'
-export type PlaybackSupportStatus =
+type PlaybackSupportStatus =
   | 'supported'
   | 'likely'
   | 'unknown'
@@ -18,9 +18,9 @@ export type EngineStatus =
   | 'preparing'
   | 'ready'
   | 'failed'
-export type MobileRenderWarningLevel = 'warning' | 'critical'
+type MobileRenderWarningLevel = 'warning' | 'critical'
 
-export type ValidationCode =
+type ValidationCode =
   | 'unsupported-format'
   | 'file-too-large'
   | 'video-too-long'
@@ -51,7 +51,7 @@ export interface ProbeStream {
   bit_rate?: string
 }
 
-export interface ProbeFormat {
+interface ProbeFormat {
   filename?: string
   format_name?: string
   duration?: string
@@ -124,4 +124,6 @@ export interface GlobalSettings {
   bassEqLowHz: number
   bassEqHighHz: number
   virtualBassCutoffHz: number
+  targetTruePeakDbtp: number
+  virtualBassDrive: number
 }

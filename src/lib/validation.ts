@@ -7,7 +7,7 @@ import {
   VIRTUAL_BASS_MAX_DB,
 } from './constants'
 import { formatBytes } from './formatters'
-import { TRUE_PEAK_TARGET_DBTP } from './virtualBass'
+
 import type {
   AudioAnalysis,
   AudioState,
@@ -22,7 +22,7 @@ import type {
 
 const MOBILE_RENDER_WARNING_SECONDS = 100
 const MOBILE_RENDER_CRITICAL_SECONDS = 150
-const LIMITER_WARNING_THRESHOLD_DBTP = TRUE_PEAK_TARGET_DBTP - 1
+
 
 export function getFileExtension(fileName: string) {
   const parts = fileName.split('.')
@@ -122,16 +122,17 @@ export function buildDerivedAnalysis(
   gainDb: number,
   bassEqDb: number,
   virtualBassDb: number,
+  targetTruePeakDbtp: number,
 ): DerivedAnalysis {
   const bassEqContributionDb = (bassEqDb / BASS_EQ_MAX_DB) * 4
   const virtualBassContributionDb = (virtualBassDb / VIRTUAL_BASS_MAX_DB) * 3
   const processingActive = gainDb > 0 || bassEqDb > 0 || virtualBassDb > 0
   const projectedTruePeakDbtp =
     analysis.truePeakDbtp + gainDb + bassEqContributionDb + virtualBassContributionDb
-  const exceedsTruePeakHeadroom = projectedTruePeakDbtp > TRUE_PEAK_TARGET_DBTP
+  const exceedsTruePeakHeadroom = projectedTruePeakDbtp > targetTruePeakDbtp
   const limiterLikelyRequired =
     processingActive &&
-    projectedTruePeakDbtp > LIMITER_WARNING_THRESHOLD_DBTP &&
+    projectedTruePeakDbtp > (targetTruePeakDbtp - 1) &&
     !exceedsTruePeakHeadroom
   const audioState = classifyAudioState(analysis.integratedLufs)
 
@@ -152,6 +153,7 @@ export function buildDerivedAnalysis(
 export function getFeedbackMessages(
   analysis: AudioAnalysis | null,
   derived: DerivedAnalysis | null,
+  targetTruePeakDbtp: number,
 ) {
   if (!analysis || !derived) {
     return []
@@ -160,13 +162,13 @@ export function getFeedbackMessages(
   const messages: string[] = []
 
   if (derived.exceedsTruePeakHeadroom) {
-    messages.push('Projected true peak exceeds the -1 dBTP safety target.')
+    messages.push(`Projected true peak exceeds the ${targetTruePeakDbtp} dBTP safety target.`)
   }
 
   if (derived.gainDb > 0) {
     messages.push(
       derived.limiterLikelyRequired || derived.exceedsTruePeakHeadroom
-        ? 'Positive gain is pushing the master close to the -1 dBTP target.'
+        ? `Positive gain is pushing the master close to the ${targetTruePeakDbtp} dBTP target.`
         : 'Positive gain is active. Current projected headroom remains within target.',
     )
   }
@@ -188,10 +190,10 @@ export function getFeedbackMessages(
   }
 
   if (
-    analysis.truePeakDbtp > TRUE_PEAK_TARGET_DBTP &&
-    !messages.includes('Projected true peak exceeds the -1 dBTP safety target.')
+    analysis.truePeakDbtp > targetTruePeakDbtp &&
+    !messages.includes(`Projected true peak exceeds the ${targetTruePeakDbtp} dBTP safety target.`)
   ) {
-    messages.push('The source master already sits above the -1 dBTP safety target.')
+    messages.push(`The source master already sits above the ${targetTruePeakDbtp} dBTP safety target.`)
   }
 
   return messages

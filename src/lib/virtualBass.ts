@@ -6,11 +6,13 @@ import {
   VIRTUAL_BASS_CUTOFF_HZ,
   VIRTUAL_BASS_CUTOFF_MAX_HZ,
   VIRTUAL_BASS_CUTOFF_MIN_HZ,
+  DEFAULT_VIRTUAL_BASS_DRIVE,
+  VIRTUAL_BASS_DRIVE_MIN,
+  VIRTUAL_BASS_DRIVE_MAX,
+  TARGET_TRUE_PEAK_DEFAULT,
+  TARGET_TRUE_PEAK_MAX,
 } from './constants'
 import type { GlobalSettings } from '../types'
-
-export const TRUE_PEAK_TARGET_DBTP = -1
-export const TRUE_PEAK_LIMIT_LINEAR = mapDbToLinearGain(TRUE_PEAK_TARGET_DBTP)
 
 export function mapDbToLinearGain(db: number) {
   return 10 ** (db / 20)
@@ -56,6 +58,8 @@ export function getDefaultGlobalSettings(): GlobalSettings {
     bassEqLowHz: BASS_EQ_FREQ_LOW_HZ,
     bassEqHighHz: BASS_EQ_FREQ_HIGH_HZ,
     virtualBassCutoffHz: VIRTUAL_BASS_CUTOFF_HZ,
+    targetTruePeakDbtp: TARGET_TRUE_PEAK_DEFAULT,
+    virtualBassDrive: DEFAULT_VIRTUAL_BASS_DRIVE,
   }
 }
 
@@ -72,11 +76,20 @@ export function normalizeGlobalSettings(
     bassEqHighHz,
   )
 
+  const rawTargetTruePeak = partial?.targetTruePeakDbtp ?? defaults.targetTruePeakDbtp
+  const targetTruePeakDbtp = rawTargetTruePeak >= TARGET_TRUE_PEAK_MAX ? TARGET_TRUE_PEAK_MAX : TARGET_TRUE_PEAK_DEFAULT
+
   return {
     bassEqLowHz,
     bassEqHighHz,
     virtualBassCutoffHz: clampVirtualBassCutoffHz(
       partial?.virtualBassCutoffHz ?? defaults.virtualBassCutoffHz,
+    ),
+    targetTruePeakDbtp,
+    virtualBassDrive: clampNumber(
+      partial?.virtualBassDrive ?? defaults.virtualBassDrive,
+      VIRTUAL_BASS_DRIVE_MIN,
+      VIRTUAL_BASS_DRIVE_MAX
     ),
   } satisfies GlobalSettings
 }

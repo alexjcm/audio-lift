@@ -4,6 +4,8 @@ import { MediaTechnicalPanel } from './components/MediaTechnicalPanel'
 import { BlockingIssuePanel } from './components/BlockingIssuePanel'
 import { GainControlPanel } from './components/GainControlPanel'
 import { HelpPanel } from './components/HelpPanel'
+import { MobileToolsSheet } from './components/MobileToolsSheet'
+import { IconPlaceholder } from './components/Icons'
 import { PlaybackSupportPanel } from './components/PlaybackSupportPanel'
 import { PreviewPanel } from './components/PreviewPanel'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -23,7 +25,12 @@ function App() {
             onBassEqLowChange={workflow.handleBassEqLowChange}
             onReset={workflow.handleResetGlobalSettings}
             onVirtualBassCutoffChange={workflow.handleVirtualBassCutoffChange}
+            onVirtualBassDriveChange={workflow.handleVirtualBassDriveChange}
+            onTargetTruePeakChange={workflow.handleTargetTruePeakChange}
+            showMobileFloatingButton={false}
             virtualBassCutoffHz={workflow.virtualBassCutoffHz}
+            virtualBassDrive={workflow.virtualBassDrive}
+            targetTruePeakDbtp={workflow.targetTruePeakDbtp}
           />
         </div>
 
@@ -60,12 +67,14 @@ function App() {
 
             {workflow.selectedFile ? (
               <div className="grid animate-in gap-3 fade-in slide-in-from-right-4 duration-500 md:gap-6">
-                <MediaTechnicalPanel
-                  mediaSummary={workflow.mediaSummary}
-                  selectedFile={workflow.selectedFile}
-                  baseAnalysis={workflow.baseAnalysis}
-                  derivedAnalysis={workflow.derivedAnalysis}
-                />
+                <div className="hidden md:block">
+                  <MediaTechnicalPanel
+                    mediaSummary={workflow.mediaSummary}
+                    selectedFile={workflow.selectedFile}
+                    baseAnalysis={workflow.baseAnalysis}
+                    derivedAnalysis={workflow.derivedAnalysis}
+                  />
+                </div>
 
                 <GainControlPanel
                   canAdjustVolume={workflow.canAdjustVolume}
@@ -95,17 +104,34 @@ function App() {
               </div>
             ) : (
               <div className="ozone-panel p-12 flex flex-col items-center justify-center text-center opacity-20">
-                <svg viewBox="0 0 24 24" className="w-12 h-12 mb-4 text-ozone-text-muted" fill="none" stroke="currentColor" strokeWidth="1">
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <path d="M3 10h18M9 14h6" />
-                </svg>
+                <IconPlaceholder className="w-12 h-12 mb-4 text-ozone-text-muted" />
                 <p className="text-technical">Load a file to enable controls</p>
               </div>
             )}
 
-            <HelpPanel />
+            <div className="hidden md:block">
+              <HelpPanel />
+            </div>
           </div>
         </section>
+
+        <MobileToolsSheet
+          bassEqHighHz={workflow.bassEqHighHz}
+          bassEqLowHz={workflow.bassEqLowHz}
+          baseAnalysis={workflow.baseAnalysis}
+          derivedAnalysis={workflow.derivedAnalysis}
+          mediaSummary={workflow.mediaSummary}
+          onBassEqHighChange={workflow.handleBassEqHighChange}
+          onBassEqLowChange={workflow.handleBassEqLowChange}
+          onReset={workflow.handleResetGlobalSettings}
+          onVirtualBassCutoffChange={workflow.handleVirtualBassCutoffChange}
+          onVirtualBassDriveChange={workflow.handleVirtualBassDriveChange}
+          onTargetTruePeakChange={workflow.handleTargetTruePeakChange}
+          selectedFile={workflow.selectedFile}
+          virtualBassCutoffHz={workflow.virtualBassCutoffHz}
+          virtualBassDrive={workflow.virtualBassDrive}
+          targetTruePeakDbtp={workflow.targetTruePeakDbtp}
+        />
       </div>
     </main>
   )

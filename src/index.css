@@ -18,34 +18,24 @@
   --color-ozone-border-bright: rgba(255, 255, 255, 0.12);
 }
 
-:root {
-  --bg: #0b0c11;
-  --panel-bg: #14161e;
-  --accent: #00f0ff;
-  --text-main: #e0e0e6;
-  --text-muted: #707282;
-  --warning: #ff4d4d;
-  --safe: #00ff9d;
-}
-
 html {
   scroll-behavior: smooth;
-  background-color: var(--bg);
+  background-color: var(--color-ozone-bg);
 }
 
 body {
   margin: 0;
   min-height: 100svh;
   font-family: var(--font-sans);
-  background-color: var(--bg);
-  color: var(--text-main);
+  background-color: var(--color-ozone-bg);
+  color: var(--color-ozone-text);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   
   /* Ozone Dashboard Gradient */
   background-image: 
     radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.03), transparent 50%),
-    linear-gradient(180deg, #0b0c11 0%, #08090d 100%);
+    linear-gradient(180deg, var(--color-ozone-bg) 0%, #08090d 100%);
 }
 
 .mobile-floating-clearance {
@@ -60,14 +50,14 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
-  color: var(--text-main);
+  color: var(--color-ozone-text);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 /* Ozone Modular Panel */
 .ozone-panel {
-  background: var(--panel-bg);
+  background: var(--color-ozone-panel);
   border: 1px solid var(--color-ozone-border);
   box-shadow: 
     inset 0 1px 1px rgba(255, 255, 255, 0.02),
@@ -102,14 +92,20 @@ h1, h2, h3, h4 {
 
 /* Button Refinement */
 button {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-property: background-color, border-color, color, box-shadow, opacity, filter, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+}
+
+input[type='range'] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-ozone {
   background: #1c1f2b;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-main);
+  color: var(--color-ozone-text);
   padding: 0.5rem 1rem;
   border-radius: 2px;
   font-weight: 600;
@@ -120,14 +116,14 @@ button {
 
 .btn-ozone:hover {
   background: #252938;
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--color-ozone-accent);
+  color: var(--color-ozone-accent);
   box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
 }
 
 .btn-ozone:active {
   transform: scale(0.98);
-  background: #14161e;
+  background: var(--color-ozone-panel);
 }
 
 /* Layout Utilities */
@@ -136,4 +132,10 @@ button {
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+@layer components {
+  .btn-technical {
+    @apply inline-flex items-center justify-center rounded-[2px] border border-ozone-border font-bold uppercase text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent;
+  }
 }

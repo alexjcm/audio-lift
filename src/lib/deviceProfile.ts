@@ -12,17 +12,3 @@ export function isLikelyAppleMobileDevice() {
   return isiPhoneLike || isiPadLike
 }
 
-export function isStandaloneDisplayMode() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  const navigatorWithStandalone = navigator as Navigator & {
-    standalone?: boolean
-  }
-
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    navigatorWithStandalone.standalone === true
-  )
-}

@@ -3,19 +3,14 @@ import {
   DEFAULT_BASS_EQ_DB,
   DEFAULT_GAIN_DB,
   DEFAULT_VIRTUAL_BASS_DB,
-  SETTINGS_STORAGE_KEY,
 } from '../lib/constants'
+import { useGlobalSettings } from './useGlobalSettings'
+import { useLivePreviewSync } from './useLivePreviewSync'
 import { isLikelyAppleMobileDevice } from '../lib/deviceProfile'
 import { triggerFileDownload } from '../lib/exportDelivery'
 import { browserMediaEngine } from '../lib/ffmpeg'
 import { LivePreviewEngine } from '../lib/livePreview'
-import {
-  clampBassEqHighHz,
-  clampBassEqLowHz,
-  clampVirtualBassCutoffHz,
-  getDefaultGlobalSettings,
-  normalizeGlobalSettings,
-} from '../lib/virtualBass'
+
 import {
   assessBrowserPlaybackSupport,
   buildDerivedAnalysis,
@@ -29,12 +24,13 @@ import type {
   AudioAnalysis,
   BrowserPlaybackSupport,
   EngineStatus,
-  GlobalSettings,
   MediaSummary,
   PreviewMode,
   ProcessingPhase,
   ValidationIssue,
 } from '../types'
+
+
 
 export function useAudioLiftWorkflow() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -64,48 +60,40 @@ export function useAudioLiftWorkflow() {
   )
   const [importWorkflowStatusMessage, setImportWorkflowStatusMessage] =
     useState<string | null>(null)
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() =>
-    loadGlobalSettings(),
-  )
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('original')
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('adjusted')
   const [blockingIssue, setBlockingIssue] = useState<ValidationIssue | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const isAppleMobileDevice = isLikelyAppleMobileDevice()
   const shouldWarnForMobile = isAppleMobileDevice
 
   const {
+    globalSettings: {
+      bassEqLowHz,
+      bassEqHighHz,
+      virtualBassCutoffHz,
+      targetTruePeakDbtp,
+      virtualBassDrive,
+    },
+    handleBassEqLowChange,
+    handleBassEqHighChange,
+    handleVirtualBassCutoffChange,
+    handleTargetTruePeakChange,
+    handleVirtualBassDriveChange,
+    handleResetGlobalSettings,
+  } = useGlobalSettings()
+
+  useLivePreviewSync(livePreview, {
+    gainDb,
+    bassEqDb,
     bassEqLowHz,
     bassEqHighHz,
+    virtualBassDb,
     virtualBassCutoffHz,
-  } = globalSettings
+    virtualBassDrive,
+    previewMode,
+  })
 
-  useEffect(() => {
-    livePreview.setGainDb(gainDb)
-  }, [gainDb, livePreview])
 
-  useEffect(() => {
-    livePreview.setBassEqDb(bassEqDb)
-  }, [bassEqDb, livePreview])
-
-  useEffect(() => {
-    livePreview.setBassEqRange(bassEqLowHz, bassEqHighHz)
-  }, [bassEqHighHz, bassEqLowHz, livePreview])
-
-  useEffect(() => {
-    livePreview.setVirtualBassDb(virtualBassDb)
-  }, [virtualBassDb, livePreview])
-
-  useEffect(() => {
-    livePreview.setVirtualBassCutoffHz(virtualBassCutoffHz)
-  }, [virtualBassCutoffHz, livePreview])
-
-  useEffect(() => {
-    livePreview.setMode(previewMode)
-  }, [previewMode, livePreview])
-
-  useEffect(() => {
-    persistGlobalSettings(globalSettings)
-  }, [globalSettings])
 
   useEffect(() => {
     return () => {
@@ -115,10 +103,10 @@ export function useAudioLiftWorkflow() {
   }, [livePreview])
 
   const derivedAnalysis = baseAnalysis
-    ? buildDerivedAnalysis(baseAnalysis, gainDb, bassEqDb, virtualBassDb)
+    ? buildDerivedAnalysis(baseAnalysis, gainDb, bassEqDb, virtualBassDb, targetTruePeakDbtp)
     : null
   const canAdjustVolume = Boolean(baseAnalysis && derivedAnalysis)
-  const feedbackMessages = getFeedbackMessages(baseAnalysis, derivedAnalysis)
+  const feedbackMessages = getFeedbackMessages(baseAnalysis, derivedAnalysis, targetTruePeakDbtp)
   const mobileRenderWarning = getMobileRenderWarning(
     mediaSummary,
     shouldWarnForMobile,
@@ -177,36 +165,7 @@ export function useAudioLiftWorkflow() {
     setVirtualBassDb(value)
   }
 
-  const handleBassEqLowChange = (value: number) => {
-    setGlobalSettings((current) => {
-      const next = normalizeGlobalSettings({
-        ...current,
-        bassEqLowHz: clampBassEqLowHz(value, current.bassEqHighHz),
-      })
-      return next
-    })
-  }
 
-  const handleBassEqHighChange = (value: number) => {
-    setGlobalSettings((current) => {
-      const next = normalizeGlobalSettings({
-        ...current,
-        bassEqHighHz: clampBassEqHighHz(value, current.bassEqLowHz),
-      })
-      return next
-    })
-  }
-
-  const handleVirtualBassCutoffChange = (value: number) => {
-    setGlobalSettings((current) => ({
-      ...current,
-      virtualBassCutoffHz: clampVirtualBassCutoffHz(value),
-    }))
-  }
-
-  const handleResetGlobalSettings = () => {
-    setGlobalSettings(getDefaultGlobalSettings())
-  }
 
   const handleFileSelection = async (file: File) => {
     requestIdRef.current += 1
@@ -341,6 +300,8 @@ export function useAudioLiftWorkflow() {
           bassEqHighHz,
           virtualBassDb,
           virtualBassCutoffHz,
+          targetTruePeakDbtp,
+          virtualBassDrive,
         },
         () => {},
       )
@@ -384,6 +345,7 @@ export function useAudioLiftWorkflow() {
     livePreview.setBassEqRange(bassEqLowHz, bassEqHighHz)
     livePreview.setVirtualBassDb(virtualBassDb)
     livePreview.setVirtualBassCutoffHz(virtualBassCutoffHz)
+    livePreview.setVirtualBassDrive(virtualBassDrive)
     livePreview.setMode(previewMode)
   }
 
@@ -466,6 +428,10 @@ export function useAudioLiftWorkflow() {
     videoRef,
     virtualBassCutoffHz,
     virtualBassDb,
+    targetTruePeakDbtp,
+    virtualBassDrive,
+    handleTargetTruePeakChange,
+    handleVirtualBassDriveChange,
   }
 }
 
@@ -477,32 +443,4 @@ function revokeObjectUrl(url: string | null) {
   URL.revokeObjectURL(url)
 }
 
-function loadGlobalSettings() {
-  if (typeof window === 'undefined') {
-    return getDefaultGlobalSettings()
-  }
 
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY)
-
-    if (!raw) {
-      return getDefaultGlobalSettings()
-    }
-
-    return normalizeGlobalSettings(JSON.parse(raw) as Partial<GlobalSettings>)
-  } catch {
-    return getDefaultGlobalSettings()
-  }
-}
-
-function persistGlobalSettings(settings: GlobalSettings) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // Ignore storage failures and keep runtime state alive.
-  }
-}

@@ -7,7 +7,9 @@ import {
   VIRTUAL_BASS_STEP_DB,
 } from '../lib/constants'
 import { formatDb } from '../lib/formatters'
-import { cn, compactPanelClass } from '../lib/ui'
+import { useRafSliderValue } from '../hooks/useRafSliderValue'
+import { compactPanelClass } from '../lib/ui'
+import { PremiumSlider } from './PremiumSlider'
 
 type BassControlPanelProps = {
   bassEqDb: number
@@ -37,7 +39,6 @@ export function BassControlPanel({
           canAdjust={canAdjust}
           desktopLabel="Bass EQ · Low-End EQ"
           mobileLabel="Bass EQ"
-          showActiveIndicator
           isActive={bassEqDb > 0}
           value={bassEqDb}
           onChange={onBassEqChange}
@@ -50,7 +51,6 @@ export function BassControlPanel({
           canAdjust={canAdjust}
           desktopLabel="Virtual Bass · Bass Enhancement"
           mobileLabel="Virtual Bass"
-          showActiveIndicator
           isActive={virtualBassDb > 0}
           value={virtualBassDb}
           onChange={onVirtualBassChange}
@@ -78,7 +78,6 @@ type ControlRowProps = {
   mobileLabel: string
   value: number
   onChange: (value: number) => void
-  showActiveIndicator?: boolean
   min: number
   max: number
   step: number
@@ -91,11 +90,15 @@ function ControlRow({
   mobileLabel,
   value,
   onChange,
-  showActiveIndicator = false,
   min,
   max,
   step,
 }: ControlRowProps) {
+  const slider = useRafSliderValue({
+    value,
+    onChange,
+  })
+
   return (
     <div className="rounded-sm border border-ozone-border bg-black/35 p-2.5 max-[720px]:p-2 md:p-3">
       <div className="mb-1.5 flex items-start justify-between gap-2 md:mb-3 md:gap-3">
@@ -104,44 +107,32 @@ function ControlRow({
             <span className="md:hidden">{mobileLabel}</span>
             <span className="hidden md:inline">{desktopLabel}</span>
           </p>
-          {showActiveIndicator ? (
-            <span
-              className={cn(
-                'mt-[1px] h-1.5 w-1.5 shrink-0 rounded-full border transition-all duration-200 md:h-2 md:w-2',
-                isActive
-                  ? 'border-ozone-accent bg-ozone-accent shadow-[0_0_10px_rgba(0,240,255,0.75)]'
-                  : 'border-ozone-border-bright bg-transparent',
-              )}
-              aria-hidden="true"
-            />
-          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5 md:gap-2">
           <span className="min-w-[4rem] text-right text-[0.72rem] font-mono font-bold text-ozone-accent md:min-w-[5.25rem] md:text-[0.82rem]">
-            {formatDb(value)}
+            {formatDb(slider.displayValue)}
           </span>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-[0.45rem] font-mono text-ozone-text-muted/85 md:text-[0.55rem]">
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/85">
           {formatDb(min)}
         </span>
 
-        <input
-          type="range"
+        <PremiumSlider
+          value={value}
           min={min}
           max={max}
           step={step}
-          value={value}
+          onChange={onChange}
           disabled={!canAdjust}
-          aria-label={desktopLabel}
-          onChange={(event) => onChange(Number(event.target.value))}
-          className="block h-2.5 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)] disabled:cursor-not-allowed disabled:opacity-35 md:h-3"
+          isHighlighted={isActive}
+          ariaLabel={desktopLabel}
         />
 
-        <span className="shrink-0 text-[0.45rem] font-mono text-ozone-text-muted/85 md:text-[0.55rem]">
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/85">
           {formatDb(max)}
         </span>
       </div>

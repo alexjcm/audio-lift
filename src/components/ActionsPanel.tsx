@@ -1,4 +1,5 @@
 import { cn, panelClass } from '../lib/ui'
+import { IconExport } from './Icons'
 import type {
   EngineStatus,
   MobileRenderWarning,
@@ -20,7 +21,6 @@ export function ActionsPanel({
   onExport,
   phase,
 }: ActionsPanelProps) {
-  const isProcessing = phase === 'exporting'
   const isExporting = phase === 'exporting'
 
   return (
@@ -88,7 +88,7 @@ export function ActionsPanel({
             isExporting && "animate-pulse"
           )}
           onClick={onExport}
-          disabled={isProcessing}
+          disabled={isExporting}
         >
           {isExporting ? (
             <>
@@ -97,9 +97,7 @@ export function ActionsPanel({
             </>
           ) : (
             <>
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-ozone-accent glow-cyan" fill="currentColor">
-                <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
-              </svg>
+              <IconExport className="h-3.5 w-3.5 shrink-0 text-ozone-accent glow-cyan" />
               <span className="text-[0.72rem] font-bold tracking-[0.04em] text-ozone-accent">Export Master</span>
             </>
           )}

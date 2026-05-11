@@ -1,13 +1,21 @@
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { type PointerEvent as ReactPointerEvent, useRef, useState, useEffect } from 'react'
 import {
   BASS_EQ_FREQ_MAX_HZ,
   BASS_EQ_FREQ_MIN_HZ,
   VIRTUAL_BASS_CUTOFF_MAX_HZ,
   VIRTUAL_BASS_CUTOFF_MIN_HZ,
+  VIRTUAL_BASS_DRIVE_MAX,
+  VIRTUAL_BASS_DRIVE_MIN,
+  TARGET_TRUE_PEAK_DEFAULT,
+  TARGET_TRUE_PEAK_MAX,
 } from '../lib/constants'
 import { formatHz } from '../lib/formatters'
+import { useRafSliderValue } from '../hooks/useRafSliderValue'
+import { getValueFromPointer } from '../hooks/useSliderPointer'
 import { cn, panelClass } from '../lib/ui'
+import { PremiumSlider } from './PremiumSlider'
+import { BottomSheet } from './BottomSheet'
+import { IconSettings, IconClose } from './Icons'
 
 type SettingsPanelProps = {
   bassEqHighHz: number
@@ -16,7 +24,25 @@ type SettingsPanelProps = {
   onBassEqLowChange: (value: number) => void
   onReset: () => void
   onVirtualBassCutoffChange: (value: number) => void
+  onVirtualBassDriveChange: (value: number) => void
+  onTargetTruePeakChange: (value: number) => void
+  showMobileFloatingButton?: boolean
   virtualBassCutoffHz: number
+  virtualBassDrive: number
+  targetTruePeakDbtp: number
+}
+
+export type SettingsContentProps = {
+  bassEqHighHz: number
+  bassEqLowHz: number
+  onBassEqHighChange: (value: number) => void
+  onBassEqLowChange: (value: number) => void
+  onVirtualBassCutoffChange: (value: number) => void
+  onVirtualBassDriveChange: (value: number) => void
+  onTargetTruePeakChange: (value: number) => void
+  virtualBassCutoffHz: number
+  virtualBassDrive: number
+  targetTruePeakDbtp: number
 }
 
 export function SettingsPanel({
@@ -26,34 +52,21 @@ export function SettingsPanel({
   onBassEqLowChange,
   onReset,
   onVirtualBassCutoffChange,
+  onVirtualBassDriveChange,
+  onTargetTruePeakChange,
+  showMobileFloatingButton = true,
   virtualBassCutoffHz,
+  virtualBassDrive,
+  targetTruePeakDbtp,
 }: SettingsPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false)
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [isOpen])
 
   return (
     <div className="flex items-start justify-end">
       <button
         type="button"
         className={cn(
-          'btn-technical hidden min-h-11 self-start items-center justify-center gap-2 rounded-[2px] border border-ozone-border px-3 py-2 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 md:inline-flex',
+          'btn-technical hidden min-h-11 self-start gap-2 px-3 py-2 text-[0.62rem] tracking-[0.08em] md:inline-flex',
           'bg-black/35 hover:border-ozone-accent/35 hover:text-ozone-accent',
           isOpen && 'border-ozone-accent/35 text-ozone-accent glow-cyan',
         )}
@@ -61,59 +74,36 @@ export function SettingsPanel({
         aria-haspopup="dialog"
         onClick={() => setIsOpen((value) => !value)}
       >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-3.5 w-3.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-        >
-          <path d="M12 3v4m0 10v4m9-9h-4M7 12H3m15.36-6.36-2.83 2.83M8.47 15.53l-2.83 2.83m0-12.72 2.83 2.83m9.89 9.89-2.83-2.83" />
-        </svg>
+        <IconSettings className="h-3.5 w-3.5" aria-hidden="true" />
         Settings
         </button>
 
-      <button
-        type="button"
-        className={cn(
-          'btn-technical fixed right-4 z-[80] inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_16px_36px_-16px_rgba(0,0,0,0.82)] backdrop-blur md:hidden',
-          'border-ozone-accent/35 bg-[#0f151f]/96 text-ozone-accent hover:border-ozone-accent/60 hover:bg-ozone-accent/12 hover:text-ozone-accent',
-          isOpen && 'border-ozone-accent/60 bg-ozone-accent/12 text-ozone-accent glow-cyan',
-        )}
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        aria-label="Open settings"
-        title="Settings"
-        onClick={() => setIsOpen((value) => !value)}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4.5 w-4.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
+      {showMobileFloatingButton ? (
+        <button
+          type="button"
+          className={cn(
+            'btn-technical fixed right-4 z-[80] h-12 w-12 rounded-full shadow-[0_16px_36px_-16px_rgba(0,0,0,0.82)] backdrop-blur md:hidden',
+            'border-ozone-accent/35 bg-[#0f151f]/96 text-ozone-accent hover:border-ozone-accent/60 hover:bg-ozone-accent/12 hover:text-ozone-accent',
+            isOpen && 'border-ozone-accent/60 bg-ozone-accent/12 text-ozone-accent glow-cyan',
+          )}
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+          aria-label="Open settings"
+          title="Settings"
+          onClick={() => setIsOpen((value) => !value)}
         >
-          <path d="M12 3v4m0 10v4m9-9h-4M7 12H3m15.36-6.36-2.83 2.83M8.47 15.53l-2.83 2.83m0-12.72 2.83 2.83m9.89 9.89-2.83-2.83" />
-        </svg>
-      </button>
+          <IconSettings className="h-4.5 w-4.5" aria-hidden="true" />
+        </button>
+      ) : null}
 
-      {isOpen
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-[90] flex items-end md:items-stretch md:justify-end"
-              role="presentation"
-            >
-              <button
-                type="button"
-                aria-label="Close settings"
-                className="absolute inset-0 h-full w-full bg-black/45 backdrop-blur-[1px]"
-                onClick={() => setIsOpen(false)}
-              />
-
-              <div
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        closeLabel="Close settings"
+        containerClassName="fixed inset-0 z-[90] flex items-end md:items-stretch md:justify-end"
+        backdropClassName="absolute inset-0 h-full w-full bg-black/45 backdrop-blur-[1px]"
+      >              <div
                 className={cn(
                   panelClass,
                   'relative w-full max-h-[82vh] overflow-y-auto rounded-b-none border-x-0 border-b-0 border-ozone-border-bright bg-[#0d1118]/98 p-4 pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] shadow-[0_-14px_32px_-18px_rgba(0,0,0,0.85)] md:h-full md:max-h-none md:w-[min(24rem,100vw)] lg:w-[25rem] md:rounded-none md:border-y-0 md:border-r-0 md:px-5 md:py-4 md:shadow-[-18px_0_40px_-24px_rgba(0,0,0,0.88)]',
@@ -126,83 +116,137 @@ export function SettingsPanel({
                     <h2 className="text-[0.72rem] font-bold uppercase tracking-[0.08em] text-ozone-accent">
                       Global Settings
                     </h2>
-                    <p className="mt-1 text-[0.54rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/75">
-                      Low-end processing
-                    </p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="btn-technical min-h-11 rounded-[2px] border border-ozone-border px-3 py-2 text-[0.55rem] font-bold uppercase tracking-[0.08em] text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
+                      className="btn-technical min-h-11 px-3 py-2 text-[0.55rem] tracking-[0.08em]"
                       onClick={onReset}
                     >
                       Reset
                     </button>
                     <button
                       type="button"
-                      className="btn-technical inline-flex h-11 w-11 items-center justify-center rounded-[2px] border border-ozone-border text-ozone-text-muted transition-all duration-200 hover:border-ozone-accent/35 hover:text-ozone-accent"
+                      className="btn-technical h-11 w-11"
                       aria-label="Close settings"
                       onClick={() => setIsOpen(false)}
                     >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden="true"
-                      >
-                        <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-                      </svg>
+                      <IconClose className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>
 
-                <div className="grid gap-3.5">
-                  <div className="rounded-sm border border-ozone-border-bright bg-black/35 p-3 md:p-3.5">
-                    <div className="mb-2.5 flex items-start justify-between gap-3">
-                      <p className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
-                        Bass EQ Band
-                      </p>
-
-                      <span className="shrink-0 rounded-[2px] border border-ozone-accent/15 bg-ozone-accent/8 px-2 py-1 text-[0.72rem] font-mono font-bold text-ozone-accent">
-                        {formatHz(bassEqLowHz)} - {formatHz(bassEqHighHz)}
-                      </span>
-                    </div>
-
-                    <BandRangeSlider
-                      lowValue={bassEqLowHz}
-                      highValue={bassEqHighHz}
-                      min={BASS_EQ_FREQ_MIN_HZ}
-                      max={BASS_EQ_FREQ_MAX_HZ}
-                      onLowChange={onBassEqLowChange}
-                      onHighChange={onBassEqHighChange}
-                    />
-                  </div>
-
-                  <div className="rounded-sm border border-ozone-border-bright bg-black/35 p-3 md:p-3.5">
-                    <SettingRow
-                      label="Virtual Bass Cutoff"
-                      description="Input band cutoff"
-                      value={virtualBassCutoffHz}
-                      min={VIRTUAL_BASS_CUTOFF_MIN_HZ}
-                      max={VIRTUAL_BASS_CUTOFF_MAX_HZ}
-                      onChange={onVirtualBassCutoffChange}
-                      flush
-                    />
-                  </div>
-                </div>
+                <SettingsContent
+                  bassEqHighHz={bassEqHighHz}
+                  bassEqLowHz={bassEqLowHz}
+                  onBassEqHighChange={onBassEqHighChange}
+                  onBassEqLowChange={onBassEqLowChange}
+                  onVirtualBassCutoffChange={onVirtualBassCutoffChange}
+                  onVirtualBassDriveChange={onVirtualBassDriveChange}
+                  onTargetTruePeakChange={onTargetTruePeakChange}
+                  virtualBassCutoffHz={virtualBassCutoffHz}
+                  virtualBassDrive={virtualBassDrive}
+                  targetTruePeakDbtp={targetTruePeakDbtp}
+                />
 
                 <div
                   aria-hidden="true"
                   className="h-[calc(env(safe-area-inset-bottom,0px)+3rem)] md:hidden"
                 />
               </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      </BottomSheet>
+    </div>
+  )
+}
+
+export function SettingsContent({
+  bassEqHighHz,
+  bassEqLowHz,
+  onBassEqHighChange,
+  onBassEqLowChange,
+  onVirtualBassCutoffChange,
+  onVirtualBassDriveChange,
+  onTargetTruePeakChange,
+  virtualBassCutoffHz,
+  virtualBassDrive,
+  targetTruePeakDbtp,
+}: SettingsContentProps) {
+  return (
+    <div className="grid gap-2.5">
+      <div className="rounded-sm border border-ozone-border-bright bg-black/35 p-2.5 md:p-3">
+        <div className="mb-2.5 flex items-start justify-between gap-3">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
+            Output Ceiling
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {[TARGET_TRUE_PEAK_DEFAULT, TARGET_TRUE_PEAK_MAX].map((value) => {
+            const isActive = targetTruePeakDbtp === value
+            return (
+              <button
+                key={value}
+                type="button"
+                className={cn(
+                  'btn-technical flex min-h-12 px-3 py-2 text-[0.68rem] tracking-[0.06em]',
+                  isActive
+                    ? 'border-ozone-accent/40 bg-ozone-accent/12 text-ozone-accent glow-cyan shadow-[inset_0_0_12px_rgba(0,240,255,0.08)]'
+                    : 'border-ozone-border bg-black/20 text-ozone-text-muted hover:border-ozone-accent/30 hover:text-ozone-text',
+                )}
+                onClick={() => onTargetTruePeakChange(value)}
+              >
+                {value.toFixed(1)} dBTP
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-[0.52rem] leading-relaxed text-ozone-text-muted/60">
+          -1.0 is the standard for streaming platforms. -0.1 maximizes output level.
+        </p>
+      </div>
+
+      <div className="rounded-sm border border-ozone-border-bright bg-black/35 p-2.5 md:p-3">
+        <div className="mb-2.5 flex items-start justify-between gap-3">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
+            Bass EQ Band
+          </p>
+        </div>
+
+        <BandRangeSlider
+          lowValue={bassEqLowHz}
+          highValue={bassEqHighHz}
+          min={BASS_EQ_FREQ_MIN_HZ}
+          max={BASS_EQ_FREQ_MAX_HZ}
+          onLowChange={onBassEqLowChange}
+          onHighChange={onBassEqHighChange}
+        />
+      </div>
+
+      <div className="rounded-sm border border-ozone-border-bright bg-black/35 p-2.5 md:p-3">
+        <div className="grid gap-2.5">
+          <SettingRow
+            label="Virtual Bass Cutoff"
+            value={virtualBassCutoffHz}
+            min={VIRTUAL_BASS_CUTOFF_MIN_HZ}
+            max={VIRTUAL_BASS_CUTOFF_MAX_HZ}
+            onChange={onVirtualBassCutoffChange}
+            flush
+          />
+
+          <div className="h-px bg-ozone-border-bright/50" />
+
+          <SettingRow
+            label="Virtual Bass Drive"
+            value={virtualBassDrive}
+            min={VIRTUAL_BASS_DRIVE_MIN}
+            max={VIRTUAL_BASS_DRIVE_MAX}
+            onChange={onVirtualBassDriveChange}
+            flush
+            isInteger
+          />
+        </div>
+      </div>
     </div>
   )
 }
@@ -225,10 +269,36 @@ function BandRangeSlider({
   onHighChange,
 }: BandRangeSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null)
+  const lowHandleRef = useRef<HTMLButtonElement | null>(null)
+  const highHandleRef = useRef<HTMLButtonElement | null>(null)
+  const activeHandleRef = useRef<'low' | 'high' | null>(null)
   const [activeHandle, setActiveHandle] = useState<'low' | 'high' | null>(null)
   const valueSpan = Math.max(1, max - min)
-  const lowPercent = ((lowValue - min) / valueSpan) * 100
-  const highPercent = ((highValue - min) / valueSpan) * 100
+  const {
+    displayValue: displayedLowValue,
+    endInteraction: endLowInteraction,
+    scheduleValue: scheduleLowValue,
+    startInteraction: startLowInteraction,
+  } = useRafSliderValue({
+    value: lowValue,
+    onChange: onLowChange,
+  })
+  const {
+    displayValue: displayedHighValue,
+    endInteraction: endHighInteraction,
+    scheduleValue: scheduleHighValue,
+    startInteraction: startHighInteraction,
+  } = useRafSliderValue({
+    value: highValue,
+    onChange: onHighChange,
+  })
+  const displayedLowValueRef = useRef(displayedLowValue)
+  const displayedHighValueRef = useRef(displayedHighValue)
+  const lowPercent = ((displayedLowValue - min) / valueSpan) * 100
+  const highPercent = ((displayedHighValue - min) / valueSpan) * 100
+
+  displayedLowValueRef.current = displayedLowValue
+  displayedHighValueRef.current = displayedHighValue
 
   useEffect(() => {
     if (!activeHandle) {
@@ -241,15 +311,22 @@ function BandRangeSlider({
         return
       }
 
-      if (activeHandle === 'low') {
-        onLowChange(Math.min(nextValue, highValue - 1))
+      if (activeHandleRef.current === 'low') {
+        scheduleLowValue(
+          Math.min(nextValue, displayedHighValueRef.current - 1),
+        )
         return
       }
 
-      onHighChange(Math.max(nextValue, lowValue + 1))
+      scheduleHighValue(
+        Math.max(nextValue, displayedLowValueRef.current + 1),
+      )
     }
 
     const stopDragging = () => {
+      endLowInteraction()
+      endHighInteraction()
+      activeHandleRef.current = null
       setActiveHandle(null)
     }
 
@@ -262,7 +339,7 @@ function BandRangeSlider({
       window.removeEventListener('pointerup', stopDragging)
       window.removeEventListener('pointercancel', stopDragging)
     }
-  }, [activeHandle, highValue, lowValue, max, min, onHighChange, onLowChange])
+  }, [activeHandle, endHighInteraction, endLowInteraction, max, min, scheduleHighValue, scheduleLowValue])
 
   const handleTrackPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const nextValue = getValueFromPointer(event.clientX, trackRef.current, min, max)
@@ -271,36 +348,39 @@ function BandRangeSlider({
     }
 
     const targetHandle =
-      Math.abs(nextValue - lowValue) <= Math.abs(nextValue - highValue) ? 'low' : 'high'
+      Math.abs(nextValue - displayedLowValueRef.current) <=
+      Math.abs(nextValue - displayedHighValueRef.current)
+        ? 'low'
+        : 'high'
+    activeHandleRef.current = targetHandle
     setActiveHandle(targetHandle)
 
     if (targetHandle === 'low') {
-      onLowChange(Math.min(nextValue, highValue - 1))
+      startLowInteraction()
+      scheduleLowValue(Math.min(nextValue, displayedHighValueRef.current - 1))
       return
     }
 
-    onHighChange(Math.max(nextValue, lowValue + 1))
+    startHighInteraction()
+    scheduleHighValue(Math.max(nextValue, displayedLowValueRef.current + 1))
   }
 
   return (
-    <div className="rounded-sm border border-ozone-border bg-black/30 px-3 py-3">
+    <div className="rounded-sm border border-ozone-border bg-black/30 px-3 py-2">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <p className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
             Bass EQ Range
           </p>
-          <p className="mt-1 text-[0.52rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/70">
-            Drag low and high handles
-          </p>
         </div>
 
         <span className="text-[0.78rem] font-mono font-bold text-ozone-accent">
-          {formatHz(lowValue)} - {formatHz(highValue)}
+          {formatHz(displayedLowValue)} - {formatHz(displayedHighValue)}
         </span>
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-[0.5rem] font-mono text-ozone-text-muted/70">
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/80">
           {formatHz(min)}
         </span>
 
@@ -320,30 +400,64 @@ function BandRangeSlider({
 
           <button
             type="button"
-            className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border border-ozone-accent bg-[#f5ffff] shadow-[0_0_14px_rgba(0,240,255,0.45)]"
+            ref={lowHandleRef}
+            className={cn(
+              'absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full border border-ozone-accent bg-[#f5ffff] shadow-[0_0_14px_rgba(0,240,255,0.45)] touch-none',
+              activeHandle === 'low' && 'shadow-[0_0_18px_rgba(0,240,255,0.62)]',
+            )}
             style={{ left: `calc(${lowPercent}% - 0.625rem)` }}
             aria-label="Adjust Bass EQ low range"
             onPointerDown={(event) => {
               event.preventDefault()
               event.stopPropagation()
+              activeHandleRef.current = 'low'
               setActiveHandle('low')
+              lowHandleRef.current?.setPointerCapture(event.pointerId)
+              startLowInteraction()
+            }}
+            onPointerUp={() => {
+              endLowInteraction()
+              activeHandleRef.current = null
+              setActiveHandle(null)
+            }}
+            onPointerCancel={() => {
+              endLowInteraction()
+              activeHandleRef.current = null
+              setActiveHandle(null)
             }}
           />
 
           <button
             type="button"
-            className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border border-ozone-accent bg-[#f5ffff] shadow-[0_0_14px_rgba(0,240,255,0.45)]"
+            ref={highHandleRef}
+            className={cn(
+              'absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full border border-ozone-accent bg-[#f5ffff] shadow-[0_0_14px_rgba(0,240,255,0.45)] touch-none',
+              activeHandle === 'high' && 'shadow-[0_0_18px_rgba(0,240,255,0.62)]',
+            )}
             style={{ left: `calc(${highPercent}% - 0.625rem)` }}
             aria-label="Adjust Bass EQ high range"
             onPointerDown={(event) => {
               event.preventDefault()
               event.stopPropagation()
+              activeHandleRef.current = 'high'
               setActiveHandle('high')
+              highHandleRef.current?.setPointerCapture(event.pointerId)
+              startHighInteraction()
+            }}
+            onPointerUp={() => {
+              endHighInteraction()
+              activeHandleRef.current = null
+              setActiveHandle(null)
+            }}
+            onPointerCancel={() => {
+              endHighInteraction()
+              activeHandleRef.current = null
+              setActiveHandle(null)
             }}
           />
         </div>
 
-        <span className="shrink-0 text-[0.5rem] font-mono text-ozone-text-muted/70">
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/80">
           {formatHz(max)}
         </span>
       </div>
@@ -352,72 +466,62 @@ function BandRangeSlider({
 }
 
 type SettingRowProps = {
-  description: string
   label: string
   max: number
   min: number
   onChange: (value: number) => void
   value: number
   flush?: boolean
+  isInteger?: boolean
 }
 
 function SettingRow({
-  description,
   label,
-  max,
-  min,
-  onChange,
   value,
+  min,
+  max,
+  onChange,
   flush = false,
+  isInteger = false,
 }: SettingRowProps) {
+  const slider = useRafSliderValue({
+    value,
+    onChange,
+  })
+
   return (
-    <div className={cn(!flush && 'rounded-sm border border-ozone-border bg-black/30 px-3 py-2.5')}>
+    <div className={cn(!flush && 'rounded-sm border border-ozone-border bg-black/30 px-3 py-2')}>
       <div className="mb-2.5 flex items-start justify-between gap-3">
         <div>
           <p className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-ozone-text">
             {label}
           </p>
-          <p className="mt-1 text-[0.52rem] font-mono uppercase tracking-[0.08em] text-ozone-text-muted/70">
-            {description}
-          </p>
         </div>
 
         <span className="text-[0.78rem] font-mono font-bold text-ozone-accent">
-          {formatHz(value)}
+          {isInteger ? slider.displayValue : formatHz(slider.displayValue)}
         </span>
       </div>
 
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="block h-3 w-full cursor-pointer appearance-none rounded-full bg-white/18 accent-[var(--ozone-accent)]"
-      />
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/80">
+          {isInteger ? min : formatHz(min)}
+        </span>
 
-      <div className="mt-1.5 flex items-center justify-between text-[0.5rem] font-mono text-ozone-text-muted/70">
-        <span>Min {formatHz(min)}</span>
-        <span>Max {formatHz(max)}</span>
+        <PremiumSlider
+          value={value}
+          min={min}
+          max={max}
+          onChange={onChange}
+          ariaLabel={label}
+        />
+
+        <span className="shrink-0 text-[0.65rem] font-mono text-ozone-text-muted/80">
+          {isInteger ? max : formatHz(max)}
+        </span>
       </div>
     </div>
   )
 }
 
-function getValueFromPointer(
-  clientX: number,
-  trackElement: HTMLDivElement | null,
-  min: number,
-  max: number,
-) {
-  if (!trackElement) {
-    return null
-  }
 
-  const bounds = trackElement.getBoundingClientRect()
-  const pointerRatio = (clientX - bounds.left) / bounds.width
-  const clampedRatio = Math.min(1, Math.max(0, pointerRatio))
-  return Math.round(min + clampedRatio * (max - min))
-}
